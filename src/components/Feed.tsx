@@ -23,6 +23,9 @@ const Feed: React.FC<FeedProps> = ({ posts, searchTerm, activeSort }) => {
     console.log(`[Sort] Applying sort: ${activeSort}`);
     let result = [...posts];
     
+    // Filter by media_type = 8 by default
+    result = result.filter(post => post.media_type === 8);
+    
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(post => 
