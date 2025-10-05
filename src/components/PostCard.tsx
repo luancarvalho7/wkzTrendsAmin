@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Play, Trophy, Medal, Award, ExternalLink } from 'lucide-react';
+import { Heart, Play, Trophy, Medal, Award, ExternalLink, Sparkles } from 'lucide-react';
 import { Post } from '../types';
 import { formatNumber } from '../utils/formatters';
 
@@ -12,6 +12,7 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
   const formatTimeAgo = (timestamp: number) => {
     const now = Math.floor(Date.now() / 1000);
     const diff = now - timestamp;
