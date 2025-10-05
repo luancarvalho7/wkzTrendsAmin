@@ -46,6 +46,33 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
     window.open(webFallbackUrl, '_blank');
   };
 
+  const handleGenerateCarousel = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('https://webhook.workez.online/webhook/generateCarousel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(post),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate carousel');
+      }
+      
+      const result = await response.json();
+      console.log('Carousel generated:', result);
+      
+      // You can add success feedback here if needed
+    } catch (error) {
+      console.error('Error generating carousel:', error);
+      // You can add error feedback here if needed
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="relative w-full max-w-[300px] bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
       <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-gray-100">
@@ -83,9 +110,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
           <ExternalLink className="w-4 h-4" />
           <span>See Content</span>
         </button>
-        <div className="absolute bottom-4 right-4 z-50 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm flex items-center space-x-2">
-          {getRankIcon(index)}
-          <span>#{index + 1}</span>
+        <div className="absolute bottom-4 right-4 z-50 flex items-center space-x-2">
+          <button
+            onClick={handleGenerateCarousel}
+            disabled={isGenerating}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1.5 rounded-full text-sm flex items-center space-x-1 hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Generate Carousel"
+          >
+            <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isGenerating ? 'Generating...' : 'Generate'}</span>
+          </button>
+          <div className="bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm flex items-center space-x-2">
+            {getRankIcon(index)}
+            <span>#{index + 1}</span>
+          </div>
         </div>
       </div>
     </div>
