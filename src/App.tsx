@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import MainContent from './components/MainContent';
+import CarouselEditorPage from './pages/CarouselEditorPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { SortOption } from './types';
 
@@ -35,7 +36,15 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/\" replace />} />
+      <Route
+        path="/carousel-editor"
+        element={
+          <ProtectedRoute>
+            <CarouselEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

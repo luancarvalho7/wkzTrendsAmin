@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heart, Play, Trophy, Medal, Award, ExternalLink, Sparkles } from 'lucide-react';
 import { Post } from '../types';
 import { formatNumber } from '../utils/formatters';
@@ -12,6 +13,7 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const formatTimeAgo = (timestamp: number) => {
     const now = Math.floor(Date.now() / 1000);
@@ -57,18 +59,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
         },
         body: JSON.stringify(post),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to generate carousel');
       }
-      
+
       const result = await response.json();
-      console.log('Carousel generated:', result);
-      
-      // You can add success feedback here if needed
+
+      if (result && result.length > 0) {
+        navigate('/carousel-editor', { state: { carouselData: result[0] } });
+      } else {
+        throw new Error('Invalid carousel data received');
+      }
     } catch (error) {
       console.error('Error generating carousel:', error);
-      // You can add error feedback here if needed
+      alert('Failed to generate carousel. Please try again.');
     } finally {
       setIsGenerating(false);
     }
