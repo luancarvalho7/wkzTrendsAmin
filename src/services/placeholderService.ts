@@ -22,6 +22,10 @@ export class PlaceholderService {
     processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, (slideContent.subtitle || '').toUpperCase());
     processedHtml = processedHtml.replace(/\{\{imagem_fundo\}\}/gi, slideContent.imagem_fundo || '');
 
+    const defaultBgUrl = 'https://admin.cnnbrasil.com.br/wp-content/uploads/sites/12/2025/01/Santos-Neymar-braco-Cruzado.jpg';
+    const newBgUrl = slideContent.imagem_fundo || '';
+    processedHtml = processedHtml.replace(new RegExp(defaultBgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newBgUrl);
+
     processedHtml = this.injectStyles(processedHtml, styles, transforms);
 
     return processedHtml;
@@ -60,7 +64,10 @@ export class PlaceholderService {
           --background-transform-y: ${transforms.backgroundY || 0}px;
         }
 
-        [data-editable="title"] {
+        [data-editable="title"],
+        *[class*="title"],
+        *[id*="title"],
+        h1, h2, h3 {
           color: var(--title-color) !important;
           font-size: var(--title-font-size) !important;
           font-family: var(--title-font-family) !important;
@@ -71,7 +78,10 @@ export class PlaceholderService {
                      scale(var(--title-scale)) !important;
         }
 
-        [data-editable="subtitle"] {
+        [data-editable="subtitle"],
+        *[class*="subtitle"],
+        *[id*="subtitle"],
+        p, span {
           color: var(--subtitle-color) !important;
           font-size: var(--subtitle-font-size) !important;
           font-family: var(--subtitle-font-family) !important;

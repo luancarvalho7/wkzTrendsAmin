@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Heart, Play, Trophy, Medal, Award, ExternalLink, Sparkles } from 'lucide-react';
 import { Post } from '../types';
+import { CarouselData } from '../types/carousel';
 import { formatNumber } from '../utils/formatters';
+import CarouselEditorModal from './carousel/CarouselEditorModal';
 
 interface PostCardProps {
   post: Post;
@@ -13,8 +14,9 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
-  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [carouselData, setCarouselData] = useState<CarouselData | null>(null);
   const formatTimeAgo = (timestamp: number) => {
     const now = Math.floor(Date.now() / 1000);
     const diff = now - timestamp;
@@ -76,11 +78,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
       console.log('Is array:', Array.isArray(result));
 
       if (Array.isArray(result) && result.length > 0 && result[0]) {
-        console.log('Navigating to editor with data:', result[0]);
-        navigate('/carousel-editor', { state: { carouselData: result[0] } });
+        console.log('Opening editor with data:', result[0]);
+        setCarouselData(result[0]);
+        setIsEditorOpen(true);
       } else if (result && typeof result === 'object' && !Array.isArray(result)) {
-        console.log('Result is object, navigating with it directly');
-        navigate('/carousel-editor', { state: { carouselData: result } });
+        console.log('Result is object, opening editor with it directly');
+        setCarouselData(result);
+        setIsEditorOpen(true);
       } else {
         console.error('Invalid data structure:', result);
         throw new Error('Invalid carousel data received from server');
@@ -95,7 +99,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
   };
 
   return (
-    <div className="relative w-full max-w-[300px] bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+    <>
+      {carouselData && (
+        <CarouselEditorModal
+          isOpen={isEditorOpen}
+          onClose={() => setIsEditorOpen(false)}
+          carouselData={carouselData}
+        />
+      )}
+      <div className="relative w-full max-w-[300px] bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
       <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-gray-100">
         <div className="flex items-center space-x-4">
           <div className="flex items-center" style={{ color: 'rgb(255, 0, 0)' }}>
@@ -148,6 +160,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

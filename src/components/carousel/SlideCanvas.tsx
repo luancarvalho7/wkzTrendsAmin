@@ -36,7 +36,7 @@ const SlideCanvas: React.FC<SlideCanvasProps> = ({ htmlContent, zoom }) => {
           className="bg-white rounded-lg shadow-2xl"
           style={{
             width: '1080px',
-            height: '1920px',
+            height: '1350px',
             border: 'none',
           }}
           sandbox="allow-same-origin"

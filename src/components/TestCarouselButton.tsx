@@ -1,9 +1,9 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { TestTube } from 'lucide-react';
+import CarouselEditorModal from './carousel/CarouselEditorModal';
 
 const TestCarouselButton: React.FC = () => {
-  const navigate = useNavigate();
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const testData = {
     dados_gerais: {
@@ -86,19 +86,26 @@ const TestCarouselButton: React.FC = () => {
   };
 
   const handleTestClick = () => {
-    console.log('Test button clicked, navigating to editor');
-    navigate('/carousel-editor', { state: { carouselData: testData } });
+    console.log('Test button clicked, opening editor modal');
+    setIsEditorOpen(true);
   };
 
   return (
-    <button
-      onClick={handleTestClick}
-      className="fixed bottom-24 right-4 md:bottom-4 z-50 bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 transition-all"
-      title="Test Carousel Editor"
-    >
-      <TestTube className="w-5 h-5" />
-      <span className="font-medium">Test Editor</span>
-    </button>
+    <>
+      <CarouselEditorModal
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        carouselData={testData}
+      />
+      <button
+        onClick={handleTestClick}
+        className="fixed bottom-24 right-4 md:bottom-4 z-50 bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 transition-all"
+        title="Test Carousel Editor"
+      >
+        <TestTube className="w-5 h-5" />
+        <span className="font-medium">Test Editor</span>
+      </button>
+    </>
   );
 };
 
