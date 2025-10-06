@@ -28,8 +28,19 @@ const CarouselEditorPage: React.FC = () => {
   const [activeStyleTab, setActiveStyleTab] = useState<'text' | 'colors' | 'background'>('text');
 
   useEffect(() => {
+    console.log('CarouselEditorPage mounted');
+    console.log('Received carouselData:', carouselData);
+
     if (!carouselData) {
+      console.error('No carousel data provided, redirecting to home');
       navigate('/');
+      return;
+    }
+
+    if (!carouselData.dados_gerais || !carouselData.conteudos) {
+      console.error('Invalid carousel data structure:', carouselData);
+      setError('Invalid carousel data structure received');
+      setIsLoading(false);
       return;
     }
 
@@ -39,9 +50,11 @@ const CarouselEditorPage: React.FC = () => {
 
       try {
         const templateId = carouselData.dados_gerais.template;
+        console.log('Loading template:', templateId);
         setCurrentTemplate(templateId);
 
         const templates = await templateService.fetchTemplate(templateId);
+        console.log('Templates loaded:', templates.length);
 
         const initialSlides: EditorSlide[] = carouselData.conteudos.map((content, index) => ({
           id: index,

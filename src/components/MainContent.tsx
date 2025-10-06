@@ -5,6 +5,7 @@ import Feed from './Feed';
 import Navigation from './Navigation';
 import SettingsPage from './SettingsPage';
 import LoadingBar from './LoadingBar';
+import TestCarouselButton from './TestCarouselButton';
 import { getFeed } from '../services/feed';
 
 interface MainContentProps {
@@ -70,29 +71,30 @@ const MainContent: React.FC<MainContentProps> = ({
       <LoadingBar isLoading={isLoading} />
       {currentPage === 'feed' && (
         <>
-          <Header 
+          <Header
             onSearch={onSearch}
             activeSort={activeSort}
             onSortChange={onSortChange}
           />
           <main className="pt-14">
-            <Feed 
-              posts={posts} 
+            <Feed
+              posts={posts}
               searchTerm={searchTerm}
               activeSort={activeSort}
             />
           </main>
+          <TestCarouselButton />
         </>
       )}
-      
+
       {currentPage === 'settings' && (
-        <SettingsPage 
-          onPageChange={onPageChange} 
+        <SettingsPage
+          onPageChange={onPageChange}
           setIsLoading={setIsLoading}
         />
       )}
-      
-      <Navigation 
+
+      <Navigation
         currentPage={currentPage}
         onPageChange={onPageChange}
       />

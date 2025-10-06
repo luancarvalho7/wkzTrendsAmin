@@ -52,6 +52,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
   const handleGenerateCarousel = async () => {
     setIsGenerating(true);
     try {
+      console.log('Sending request to webhook...');
       const response = await fetch('https://webhook.workez.online/webhook/generateCarousel', {
         method: 'POST',
         headers: {
@@ -60,20 +61,34 @@ const PostCard: React.FC<PostCardProps> = ({ post, index }) => {
         body: JSON.stringify(post),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (!response.ok) {
-        throw new Error('Failed to generate carousel');
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('Received result:', result);
+      console.log('Result type:', typeof result);
+      console.log('Is array:', Array.isArray(result));
 
-      if (result && result.length > 0) {
+      if (Array.isArray(result) && result.length > 0 && result[0]) {
+        console.log('Navigating to editor with data:', result[0]);
         navigate('/carousel-editor', { state: { carouselData: result[0] } });
+      } else if (result && typeof result === 'object' && !Array.isArray(result)) {
+        console.log('Result is object, navigating with it directly');
+        navigate('/carousel-editor', { state: { carouselData: result } });
       } else {
-        throw new Error('Invalid carousel data received');
+        console.error('Invalid data structure:', result);
+        throw new Error('Invalid carousel data received from server');
       }
     } catch (error) {
       console.error('Error generating carousel:', error);
-      alert('Failed to generate carousel. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to generate carousel: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }
