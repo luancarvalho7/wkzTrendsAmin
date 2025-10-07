@@ -16,10 +16,10 @@ const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   const [customUrl, setCustomUrl] = useState('');
 
   const backgrounds = [
-    { url: slideContent.imagem_fundo, index: 0 },
-    { url: slideContent.imagem_fundo2, index: 1 },
-    { url: slideContent.imagem_fundo3, index: 2 },
-  ].filter((bg) => bg.url);
+    slideContent.imagem_fundo && { url: slideContent.imagem_fundo, index: 0 },
+    slideContent.imagem_fundo2 && { url: slideContent.imagem_fundo2, index: 1 },
+    slideContent.imagem_fundo3 && { url: slideContent.imagem_fundo3, index: 2 },
+  ].filter((bg): bg is { url: string; index: number } => Boolean(bg && bg.url));
 
   const handleCustomUrl = () => {
     if (customUrl.trim()) {
@@ -29,8 +29,8 @@ const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 border-b border-gray-700 p-4">
-      <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center">
+    <div className="bg-black border-b border-white/20 p-4">
+      <h3 className="text-sm font-medium text-white mb-3 flex items-center">
         <ImageIcon className="w-4 h-4 mr-2" />
         Background Images
       </h3>
@@ -38,12 +38,12 @@ const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
       <div className="grid grid-cols-3 gap-2 mb-4">
         {backgrounds.map((bg) => (
           <button
-            key={bg.index}
-            onClick={() => onBackgroundChange(bg.url!, bg.index)}
+            key={`${bg.index}-${bg.url}`}
+            onClick={() => onBackgroundChange(bg.url, bg.index)}
             className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
               selectedIndex === bg.index
-                ? 'border-blue-500 ring-2 ring-blue-500/50'
-                : 'border-gray-600 hover:border-gray-500'
+                ? 'border-white ring-2 ring-white/50'
+                : 'border-white/20 hover:border-white/40'
             }`}
           >
             <img
@@ -59,19 +59,19 @@ const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
       </div>
 
       <div className="space-y-2">
-        <label className="block text-xs font-medium text-gray-400">Custom Image URL</label>
+        <label className="block text-xs font-medium text-white/60">Custom Image URL</label>
         <div className="flex space-x-2">
           <input
             type="text"
             value={customUrl}
             onChange={(e) => setCustomUrl(e.target.value)}
             placeholder="https://example.com/image.jpg"
-            className="flex-1 bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-white/10 text-white border border-white/20 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 placeholder-white/40"
             onKeyPress={(e) => e.key === 'Enter' && handleCustomUrl()}
           />
           <button
             onClick={handleCustomUrl}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            className="px-3 py-2 bg-white text-black hover:bg-white/90 rounded transition-colors"
           >
             <Upload className="w-4 h-4" />
           </button>

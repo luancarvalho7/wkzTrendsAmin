@@ -25,7 +25,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 }) => {
   const [slides, setSlides] = useState<EditorSlide[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [zoom, setZoom] = useState(0.35);
+  const [zoom, setZoom] = useState(0.55);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState('');
@@ -58,14 +58,25 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
         const templates = await templateService.fetchTemplate(templateId);
         console.log('Templates loaded:', templates.length);
 
-        const initialSlides: EditorSlide[] = carouselData.conteudos.map((content, index) => ({
-          id: index,
-          content: { ...content },
-          styles: getDefaultStyles(),
-          transforms: getDefaultTransforms(),
-          htmlTemplate: templates[index],
-          selectedBackgroundIndex: 0,
-        }));
+        const initialSlides: EditorSlide[] = carouselData.conteudos.map((content, index) => {
+          const template = templates[index];
+          const hasSubtitle = template.includes('{{subtitle}}') || template.includes('data-editable="subtitle"');
+
+          let processedContent = { ...content };
+          if (!hasSubtitle && content.title && content.subtitle) {
+            processedContent.title = `${content.title}\n\n${content.subtitle}`;
+            console.log(`Merged title and subtitle for slide ${index + 1}`);
+          }
+
+          return {
+            id: index,
+            content: processedContent,
+            styles: {},
+            transforms: getDefaultTransforms(),
+            htmlTemplate: template,
+            selectedBackgroundIndex: 0,
+          };
+        });
 
         setSlides(initialSlides);
         setHistory([initialSlides]);
@@ -79,23 +90,6 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
     loadTemplate();
   }, [isOpen, carouselData]);
-
-  const getDefaultStyles = (): SlideStyles => ({
-    titleColor: '#000000',
-    titleFontSize: '32px',
-    titleFontFamily: 'Arial, sans-serif',
-    titleFontWeight: 'bold',
-    titleTextAlign: 'center',
-    subtitleColor: '#333333',
-    subtitleFontSize: '18px',
-    subtitleFontFamily: 'Arial, sans-serif',
-    subtitleFontWeight: 'normal',
-    subtitleTextAlign: 'center',
-    backgroundColor: 'transparent',
-    backgroundOpacity: '1',
-    overlayColor: 'transparent',
-    overlayOpacity: '0',
-  });
 
   const getDefaultTransforms = (): SlideTransform => ({
     titleX: 0,
@@ -162,10 +156,31 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
     try {
       const templates = await templateService.fetchTemplate(templateId);
-      const updatedSlides = slides.map((slide, index) => ({
-        ...slide,
-        htmlTemplate: templates[index],
-      }));
+      const updatedSlides = slides.map((slide, index) => {
+        const template = templates[index];
+        const hasSubtitle = template.includes('{{subtitle}}') || template.includes('data-editable="subtitle"');
+        const originalContent = carouselData.conteudos[index];
+
+        let processedContent = slide.content;
+        if (!hasSubtitle && originalContent.title && originalContent.subtitle) {
+          processedContent = {
+            ...slide.content,
+            title: `${originalContent.title}\n\n${originalContent.subtitle}`,
+          };
+        } else if (hasSubtitle) {
+          processedContent = {
+            ...slide.content,
+            title: originalContent.title,
+            subtitle: originalContent.subtitle,
+          };
+        }
+
+        return {
+          ...slide,
+          content: processedContent,
+          htmlTemplate: template,
+        };
+      });
 
       setSlides(updatedSlides);
       setCurrentTemplate(templateId);
@@ -215,7 +230,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95">
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 max-w-md">
           <h2 className="text-xl font-bold mb-2 text-white">Error</h2>
           <p className="text-red-500 mb-4">{error}</p>
@@ -232,7 +247,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Loading editor...</p>
@@ -253,15 +268,15 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     : '';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] bg-black">
       <div className="h-screen flex flex-col">
-        <div className="bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+        <div className="bg-black border-b border-white/20 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-xl font-bold text-white">Carousel Editor</h1>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
           >
             <X className="w-6 h-6 text-white" />
           </button>
@@ -280,7 +295,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
         />
 
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-80 bg-gray-800 flex flex-col overflow-y-auto">
+          <div className="w-80 bg-black border-r border-white/20 flex flex-col overflow-y-auto">
             <TemplateSelector
               currentTemplate={currentTemplate}
               onTemplateChange={handleTemplateChange}
