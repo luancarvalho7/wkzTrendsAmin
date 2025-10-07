@@ -23,7 +23,8 @@ export class ExportService {
       carouselData,
       slide.content,
       slide.styles,
-      slide.transforms
+      slide.transforms,
+      slide.selectedBackgroundIndex
     );
   }
 

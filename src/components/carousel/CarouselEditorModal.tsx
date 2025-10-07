@@ -139,13 +139,10 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
   const handleBackgroundChange = useCallback((imageUrl: string, index: number) => {
-    const currentSlide = slides[currentSlideIndex];
-    const newContent = { ...currentSlide.content, imagem_fundo: imageUrl };
     updateSlide(currentSlideIndex, {
-      content: newContent,
       selectedBackgroundIndex: index,
     });
-    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, content: newContent, selectedBackgroundIndex: index } : s));
+    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, selectedBackgroundIndex: index } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
   const handleTemplateChange = async (templateId: string) => {
@@ -263,7 +260,8 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
         carouselData,
         currentSlide.content,
         currentSlide.styles,
-        currentSlide.transforms
+        currentSlide.transforms,
+        currentSlide.selectedBackgroundIndex
       )
     : '';
 

@@ -6,7 +6,8 @@ export class PlaceholderService {
     data: CarouselData,
     slideContent: SlideContent,
     styles: SlideStyles,
-    transforms: SlideTransform
+    transforms: SlideTransform,
+    selectedBackgroundIndex: number = 0
   ): string {
     let processedHtml = html;
 
@@ -20,13 +21,22 @@ export class PlaceholderService {
     processedHtml = processedHtml.replace(/\{\{TITLE\}\}/g, (slideContent.title || '').toUpperCase());
     processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, slideContent.subtitle || '');
     processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, (slideContent.subtitle || '').toUpperCase());
-    processedHtml = processedHtml.replace(/\{\{imagem_fundo\}\}/gi, slideContent.imagem_fundo || '');
+
+    const selectedBgUrl = selectedBackgroundIndex === 0
+      ? slideContent.imagem_fundo
+      : selectedBackgroundIndex === 1
+        ? slideContent.imagem_fundo2
+        : slideContent.imagem_fundo3;
+
+    processedHtml = processedHtml.replace(/\{\{imagem_fundo\}\}/gi, selectedBgUrl || '');
 
     const defaultBgUrl = 'https://admin.cnnbrasil.com.br/wp-content/uploads/sites/12/2025/01/Santos-Neymar-braco-Cruzado.jpg';
-    const newBgUrl = slideContent.imagem_fundo || '';
-    processedHtml = processedHtml.replace(new RegExp(defaultBgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newBgUrl);
+    processedHtml = processedHtml.replace(new RegExp(defaultBgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), selectedBgUrl || '');
 
-    processedHtml = this.injectStyles(processedHtml, styles, transforms);
+    const hasStyles = styles && Object.keys(styles).length > 0;
+    if (hasStyles) {
+      processedHtml = this.injectStyles(processedHtml, styles, transforms);
+    }
 
     return processedHtml;
   }
