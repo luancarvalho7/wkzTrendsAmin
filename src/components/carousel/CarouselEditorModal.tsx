@@ -32,6 +32,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [activeStyleTab, setActiveStyleTab] = useState<'text' | 'colors' | 'background'>('text');
+  const [isAutoLayout, setIsAutoLayout] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -223,6 +224,45 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     onClose();
   };
 
+  const handleToggleAutoLayout = () => {
+    setIsAutoLayout(!isAutoLayout);
+    updateSlide(currentSlideIndex, { isAutoLayout: !isAutoLayout });
+  };
+
+  const handleResetLayout = () => {
+    updateSlide(currentSlideIndex, {
+      layoutState: undefined,
+      isAutoLayout: false,
+    });
+    setIsAutoLayout(false);
+    saveToHistory(
+      slides.map((s, i) =>
+        i === currentSlideIndex
+          ? { ...s, layoutState: undefined, isAutoLayout: false }
+          : s
+      )
+    );
+  };
+
+  const handleLayoutChange = useCallback((layoutData: { elementOrder?: string[]; positions?: { [key: string]: { x: number; y: number } } }) => {
+    const currentSlide = slides[currentSlideIndex];
+    const newLayoutState = {
+      ...currentSlide.layoutState,
+      ...layoutData,
+      positions: {
+        ...currentSlide.layoutState?.positions,
+        ...layoutData.positions,
+      },
+    };
+
+    updateSlide(currentSlideIndex, { layoutState: newLayoutState });
+    saveToHistory(
+      slides.map((s, i) =>
+        i === currentSlideIndex ? { ...s, layoutState: newLayoutState } : s
+      )
+    );
+  }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
+
   if (!isOpen) return null;
 
   if (error) {
@@ -261,7 +301,9 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
         currentSlide.content,
         currentSlide.styles,
         currentSlide.transforms,
-        currentSlide.selectedBackgroundIndex
+        currentSlide.selectedBackgroundIndex,
+        currentSlide.layoutState,
+        currentSlide.isAutoLayout
       )
     : '';
 
@@ -290,6 +332,9 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
           onBackToFeed={handleClose}
+          isAutoLayout={isAutoLayout}
+          onToggleAutoLayout={handleToggleAutoLayout}
+          onResetLayout={handleResetLayout}
         />
 
         <div className="flex-1 flex overflow-hidden">
@@ -320,7 +365,12 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
           </div>
 
           <div className="flex-1">
-            <SlideCanvas htmlContent={currentHtml} zoom={zoom} />
+            <SlideCanvas
+              htmlContent={currentHtml}
+              zoom={zoom}
+              isAutoLayout={isAutoLayout}
+              onLayoutChange={handleLayoutChange}
+            />
           </div>
 
           {currentSlide && (

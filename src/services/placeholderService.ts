@@ -1,4 +1,4 @@
-import { CarouselData, SlideContent, SlideStyles, SlideTransform } from '../types/carousel';
+import { CarouselData, SlideContent, SlideStyles, SlideTransform, LayoutState } from '../types/carousel';
 
 export class PlaceholderService {
   replacePlaceholders(
@@ -7,7 +7,9 @@ export class PlaceholderService {
     slideContent: SlideContent,
     styles: SlideStyles,
     transforms: SlideTransform,
-    selectedBackgroundIndex: number = 0
+    selectedBackgroundIndex: number = 0,
+    layoutState?: LayoutState,
+    isAutoLayout?: boolean
   ): string {
     let processedHtml = html;
 
@@ -146,6 +148,29 @@ export class PlaceholderService {
           pointer-events: none;
         }
       `;
+    }
+
+    if (layoutState?.positions && !isAutoLayout) {
+      Object.entries(layoutState.positions).forEach(([elementId, pos]) => {
+        cssRules += `
+          [data-editable="${elementId}"] {
+            position: absolute !important;
+            left: ${pos.x}px !important;
+            top: ${pos.y}px !important;
+            z-index: 1000 !important;
+          }
+        `;
+      });
+    }
+
+    if (layoutState?.elementOrder && isAutoLayout) {
+      layoutState.elementOrder.forEach((elementId, index) => {
+        cssRules += `
+          [data-editable="${elementId}"] {
+            order: ${index} !important;
+          }
+        `;
+      });
     }
 
     const styleTag = cssRules ? `<style id="editor-styles">${cssRules}</style>` : '';
