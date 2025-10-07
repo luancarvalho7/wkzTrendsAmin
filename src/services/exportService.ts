@@ -24,9 +24,7 @@ export class ExportService {
       slide.content,
       slide.styles,
       slide.transforms,
-      slide.selectedBackgroundIndex,
-      slide.layoutState,
-      slide.isAutoLayout
+      slide.selectedBackgroundIndex
     );
   }
 

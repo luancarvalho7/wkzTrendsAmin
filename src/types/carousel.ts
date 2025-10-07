@@ -48,13 +48,6 @@ export interface SlideTransform {
   backgroundY: number;
 }
 
-export interface LayoutState {
-  elementOrder?: string[];
-  positions?: {
-    [elementId: string]: { x: number; y: number };
-  };
-}
-
 export interface EditorSlide {
   id: number;
   content: SlideContent;
@@ -62,8 +55,6 @@ export interface EditorSlide {
   transforms: SlideTransform;
   htmlTemplate: string;
   selectedBackgroundIndex: number;
-  layoutState?: LayoutState;
-  isAutoLayout?: boolean;
 }
 
 export interface EditorState {

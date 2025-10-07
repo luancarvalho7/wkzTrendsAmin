@@ -11,7 +11,6 @@ import StylePanel from './StylePanel';
 import TemplateSelector from './TemplateSelector';
 import BackgroundSelector from './BackgroundSelector';
 import ContentEditor from './ContentEditor';
-import ElementStylePanel from './ElementStylePanel';
 
 interface CarouselEditorModalProps {
   isOpen: boolean;
@@ -33,8 +32,6 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [activeStyleTab, setActiveStyleTab] = useState<'text' | 'colors' | 'background'>('text');
-  const [isAutoLayout, setIsAutoLayout] = useState(false);
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -226,130 +223,6 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     onClose();
   };
 
-  const handleToggleAutoLayout = () => {
-    setIsAutoLayout(!isAutoLayout);
-    updateSlide(currentSlideIndex, { isAutoLayout: !isAutoLayout });
-  };
-
-  const handleResetLayout = () => {
-    updateSlide(currentSlideIndex, {
-      layoutState: undefined,
-      isAutoLayout: false,
-    });
-    setIsAutoLayout(false);
-    saveToHistory(
-      slides.map((s, i) =>
-        i === currentSlideIndex
-          ? { ...s, layoutState: undefined, isAutoLayout: false }
-          : s
-      )
-    );
-  };
-
-  const handleLayoutChange = useCallback((layoutData: { elementOrder?: string[]; positions?: { [key: string]: { x: number; y: number } } }) => {
-    const currentSlide = slides[currentSlideIndex];
-    const newLayoutState = {
-      ...currentSlide.layoutState,
-      ...layoutData,
-      positions: {
-        ...currentSlide.layoutState?.positions,
-        ...layoutData.positions,
-      },
-    };
-
-    updateSlide(currentSlideIndex, { layoutState: newLayoutState });
-    saveToHistory(
-      slides.map((s, i) =>
-        i === currentSlideIndex ? { ...s, layoutState: newLayoutState } : s
-      )
-    );
-  }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
-
-  const handleElementSelect = useCallback((elementId: string) => {
-    console.log('Element selected:', elementId);
-    setSelectedElement(elementId);
-  }, []);
-
-  const handleElementStyleChange = useCallback((property: string, value: string | number) => {
-    if (!selectedElement) return;
-
-    const currentSlide = slides[currentSlideIndex];
-    if (!currentSlide) return;
-
-    if (property === 'x' || property === 'y') {
-      const newLayoutState = {
-        ...currentSlide.layoutState,
-        positions: {
-          ...currentSlide.layoutState?.positions,
-          [selectedElement]: {
-            x: property === 'x' ? (value as number) : (currentSlide.layoutState?.positions?.[selectedElement]?.x || 0),
-            y: property === 'y' ? (value as number) : (currentSlide.layoutState?.positions?.[selectedElement]?.y || 0),
-          },
-        },
-      };
-
-      updateSlide(currentSlideIndex, { layoutState: newLayoutState });
-      saveToHistory(
-        slides.map((s, i) =>
-          i === currentSlideIndex ? { ...s, layoutState: newLayoutState } : s
-        )
-      );
-    } else {
-      const newStyles = { ...currentSlide.styles };
-
-      if (selectedElement === 'title') {
-        if (property === 'fontSize') newStyles.titleFontSize = value as string;
-        if (property === 'fontWeight') newStyles.titleFontWeight = value as string;
-        if (property === 'color') newStyles.titleColor = value as string;
-        if (property === 'textAlign') newStyles.titleAlignment = value as string;
-      } else if (selectedElement === 'subtitle') {
-        if (property === 'fontSize') newStyles.subtitleFontSize = value as string;
-        if (property === 'fontWeight') newStyles.subtitleFontWeight = value as string;
-        if (property === 'color') newStyles.subtitleColor = value as string;
-        if (property === 'textAlign') newStyles.subtitleAlignment = value as string;
-      }
-
-      handleStyleChange(newStyles);
-    }
-  }, [selectedElement, slides, currentSlideIndex, updateSlide, saveToHistory, handleStyleChange]);
-
-  const getSelectedElementStyles = useCallback(() => {
-    if (!selectedElement || !slides[currentSlideIndex]) {
-      return {};
-    }
-
-    const currentSlide = slides[currentSlideIndex];
-    const styles = currentSlide.styles;
-    const position = currentSlide.layoutState?.positions?.[selectedElement];
-
-    if (selectedElement === 'title') {
-      return {
-        fontSize: styles.titleFontSize,
-        fontWeight: styles.titleFontWeight,
-        color: styles.titleColor,
-        textAlign: styles.titleAlignment,
-        x: position?.x || 0,
-        y: position?.y || 0,
-      };
-    } else if (selectedElement === 'subtitle') {
-      return {
-        fontSize: styles.subtitleFontSize,
-        fontWeight: styles.subtitleFontWeight,
-        color: styles.subtitleColor,
-        textAlign: styles.subtitleAlignment,
-        x: position?.x || 0,
-        y: position?.y || 0,
-      };
-    } else if (selectedElement === 'background') {
-      return {
-        x: position?.x || 0,
-        y: position?.y || 0,
-      };
-    }
-
-    return {};
-  }, [selectedElement, slides, currentSlideIndex]);
-
   if (!isOpen) return null;
 
   if (error) {
@@ -388,9 +261,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
         currentSlide.content,
         currentSlide.styles,
         currentSlide.transforms,
-        currentSlide.selectedBackgroundIndex,
-        currentSlide.layoutState,
-        currentSlide.isAutoLayout
+        currentSlide.selectedBackgroundIndex
       )
     : '';
 
@@ -419,9 +290,6 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
           onBackToFeed={handleClose}
-          isAutoLayout={isAutoLayout}
-          onToggleAutoLayout={handleToggleAutoLayout}
-          onResetLayout={handleResetLayout}
         />
 
         <div className="flex-1 flex overflow-hidden">
@@ -452,24 +320,10 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
           </div>
 
           <div className="flex-1">
-            <SlideCanvas
-              htmlContent={currentHtml}
-              zoom={zoom}
-              isAutoLayout={isAutoLayout}
-              onLayoutChange={handleLayoutChange}
-              onElementSelect={handleElementSelect}
-              selectedElement={selectedElement}
-            />
+            <SlideCanvas htmlContent={currentHtml} zoom={zoom} />
           </div>
 
-          {selectedElement ? (
-            <ElementStylePanel
-              selectedElement={selectedElement}
-              elementStyles={getSelectedElementStyles()}
-              onStyleChange={handleElementStyleChange}
-              onClose={() => setSelectedElement(null)}
-            />
-          ) : currentSlide && (
+          {currentSlide && (
             <StylePanel
               styles={currentSlide.styles}
               onStyleChange={handleStyleChange}

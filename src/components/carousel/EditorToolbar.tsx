@@ -1,5 +1,5 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Download, Undo, Redo, Home, Grid3x3, Move, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, Download, Undo, Redo, Home } from 'lucide-react';
 
 interface EditorToolbarProps {
   zoom: number;
@@ -11,9 +11,6 @@ interface EditorToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   onBackToFeed: () => void;
-  isAutoLayout: boolean;
-  onToggleAutoLayout: () => void;
-  onResetLayout: () => void;
 }
 
 const EditorToolbar: React.FC<EditorToolbarProps> = ({
@@ -26,50 +23,26 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   canUndo,
   canRedo,
   onBackToFeed,
-  isAutoLayout,
-  onToggleAutoLayout,
-  onResetLayout,
 }) => {
   return (
-    <div className="bg-black border-b border-white/20 px-6 py-4 flex items-center justify-between">
+    <div className="bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
       <div className="flex items-center space-x-4">
         <button
           onClick={onBackToFeed}
-          className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
         >
           <Home className="w-4 h-4" />
           <span>Back to Feed</span>
         </button>
+        <div className="h-6 w-px bg-gray-700" />
+        <h1 className="text-xl font-bold text-white">Carousel Editor</h1>
       </div>
 
       <div className="flex items-center space-x-2">
         <button
-          onClick={onToggleAutoLayout}
-          className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-            isAutoLayout
-              ? 'bg-white text-black'
-              : 'bg-white/10 text-white hover:bg-white/20'
-          }`}
-          title={isAutoLayout ? 'Auto Layout: ON' : 'Auto Layout: OFF'}
-        >
-          {isAutoLayout ? <Grid3x3 className="w-4 h-4" /> : <Move className="w-4 h-4" />}
-          <span className="text-sm">{isAutoLayout ? 'Auto' : 'Free'}</span>
-        </button>
-
-        <button
-          onClick={onResetLayout}
-          className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors"
-          title="Reset Layout"
-        >
-          <RotateCcw className="w-5 h-5 text-white" />
-        </button>
-
-        <div className="h-6 w-px bg-white/20 mx-2" />
-
-        <button
           onClick={onUndo}
           disabled={!canUndo}
-          className="p-2 rounded bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           title="Undo"
         >
           <Undo className="w-5 h-5 text-white" />
@@ -77,17 +50,17 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         <button
           onClick={onRedo}
           disabled={!canRedo}
-          className="p-2 rounded bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           title="Redo"
         >
           <Redo className="w-5 h-5 text-white" />
         </button>
 
-        <div className="h-6 w-px bg-white/20 mx-2" />
+        <div className="h-6 w-px bg-gray-700 mx-2" />
 
         <button
           onClick={onZoomOut}
-          className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors"
+          className="p-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
           title="Zoom Out"
         >
           <ZoomOut className="w-5 h-5 text-white" />
@@ -97,17 +70,17 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         </span>
         <button
           onClick={onZoomIn}
-          className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors"
+          className="p-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
           title="Zoom In"
         >
           <ZoomIn className="w-5 h-5 text-white" />
         </button>
 
-        <div className="h-6 w-px bg-white/20 mx-2" />
+        <div className="h-6 w-px bg-gray-700 mx-2" />
 
         <button
           onClick={onExport}
-          className="flex items-center space-x-2 px-4 py-2 bg-white text-black hover:bg-white/90 rounded-lg transition-all"
+          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all"
         >
           <Download className="w-4 h-4" />
           <span>Export</span>
