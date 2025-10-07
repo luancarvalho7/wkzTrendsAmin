@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 interface SlideCanvasProps {
   htmlContent: string;
@@ -9,123 +9,226 @@ interface SlideCanvasProps {
 
 const SlideCanvas: React.FC<SlideCanvasProps> = ({ htmlContent, zoom, isAutoLayout, onLayoutChange }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [draggedElement, setDraggedElement] = useState<HTMLElement | null>(null);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const onLayoutChangeRef = useRef(onLayoutChange);
 
   useEffect(() => {
-    if (iframeRef.current) {
-      const iframe = iframeRef.current;
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    onLayoutChangeRef.current = onLayoutChange;
+  }, [onLayoutChange]);
 
-      if (doc) {
-        doc.open();
-        doc.write(htmlContent);
-        doc.close();
+  const injectDragScript = useCallback((html: string) => {
+    const dragScript = `
+      <script>
+        (function() {
+          console.log('🎯 Drag script loaded');
 
-        setTimeout(() => {
-          setupDragAndDrop(doc);
-        }, 100);
-      }
-    }
-  }, [htmlContent, isAutoLayout]);
+          let dragState = {
+            isDragging: false,
+            element: null,
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0
+          };
 
-  const setupDragAndDrop = (doc: Document) => {
-    const draggableElements = doc.querySelectorAll('[data-editable]');
+          const isAutoLayout = ${isAutoLayout};
 
-    draggableElements.forEach((element) => {
-      const el = element as HTMLElement;
-      el.style.cursor = 'move';
-      el.style.userSelect = 'none';
+          function setupDraggables() {
+            console.log('🔧 Setting up draggables, isAutoLayout:', isAutoLayout);
+            const elements = document.querySelectorAll('[data-editable]');
+            console.log('📦 Found elements:', elements.length);
 
-      el.addEventListener('mousedown', (e: MouseEvent) => handleMouseDown(e, el, doc));
-    });
-  };
+            elements.forEach((el, index) => {
+              console.log('✅ Setting up element', index, el.getAttribute('data-editable'));
 
-  const handleMouseDown = (e: MouseEvent, element: HTMLElement, doc: Document) => {
-    e.preventDefault();
-    setIsDragging(true);
-    setDraggedElement(element);
+              el.style.userSelect = 'none';
+              el.style.transition = 'outline 0.2s';
 
-    const rect = element.getBoundingClientRect();
-    setDragStart({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
+              if (isAutoLayout) {
+                el.style.cursor = 'move';
+                el.style.outline = '2px dashed rgba(59, 130, 246, 0.5)';
+              } else {
+                el.style.cursor = 'grab';
+                el.style.outline = '2px dashed rgba(34, 197, 94, 0.5)';
+              }
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!element) return;
+              el.addEventListener('mouseenter', function() {
+                if (!dragState.isDragging) {
+                  this.style.outline = isAutoLayout
+                    ? '2px solid rgba(59, 130, 246, 0.8)'
+                    : '2px solid rgba(34, 197, 94, 0.8)';
+                }
+              });
 
-      const parent = element.parentElement;
-      if (!parent) return;
+              el.addEventListener('mouseleave', function() {
+                if (!dragState.isDragging) {
+                  this.style.outline = isAutoLayout
+                    ? '2px dashed rgba(59, 130, 246, 0.5)'
+                    : '2px dashed rgba(34, 197, 94, 0.5)';
+                }
+              });
 
-      const parentRect = parent.getBoundingClientRect();
+              el.addEventListener('mousedown', function(e) {
+                console.log('🖱️ Mousedown on', this.getAttribute('data-editable'));
+                e.preventDefault();
+                e.stopPropagation();
 
-      if (isAutoLayout) {
-        const mouseY = e.clientY - parentRect.top;
-        const siblings = Array.from(parent.children).filter(
-          (child) => child.hasAttribute('data-editable')
-        ) as HTMLElement[];
+                const rect = this.getBoundingClientRect();
+                this.style.cursor = 'grabbing';
+                this.style.outline = '3px solid rgba(59, 130, 246, 1)';
 
-        const currentIndex = siblings.indexOf(element);
-        let targetIndex = currentIndex;
+                dragState = {
+                  isDragging: true,
+                  element: this,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  offsetX: e.clientX - rect.left,
+                  offsetY: e.clientY - rect.top
+                };
 
-        siblings.forEach((sibling, index) => {
-          if (sibling === element) return;
-          const siblingRect = sibling.getBoundingClientRect();
-          const siblingCenter = siblingRect.top + siblingRect.height / 2 - parentRect.top;
+                console.log('🚀 Drag started');
+              });
+            });
 
-          if (mouseY < siblingCenter && index < currentIndex) {
-            targetIndex = Math.min(targetIndex, index);
-          } else if (mouseY > siblingCenter && index > currentIndex) {
-            targetIndex = Math.max(targetIndex, index);
+            document.addEventListener('mousemove', function(e) {
+              if (!dragState.isDragging || !dragState.element) return;
+
+              const element = dragState.element;
+              const parent = element.parentElement;
+              if (!parent) return;
+
+              const parentRect = parent.getBoundingClientRect();
+
+              if (isAutoLayout) {
+                const mouseY = e.clientY;
+                const siblings = Array.from(parent.children).filter(
+                  child => child.hasAttribute('data-editable')
+                );
+
+                const currentIndex = siblings.indexOf(element);
+                let targetIndex = currentIndex;
+
+                siblings.forEach((sibling, index) => {
+                  if (sibling === element) return;
+                  const siblingRect = sibling.getBoundingClientRect();
+                  const siblingCenter = siblingRect.top + siblingRect.height / 2;
+
+                  if (mouseY < siblingCenter && index < currentIndex) {
+                    targetIndex = Math.min(targetIndex, index);
+                  } else if (mouseY > siblingCenter && index > currentIndex) {
+                    targetIndex = Math.max(targetIndex, index);
+                  }
+                });
+
+                if (targetIndex !== currentIndex) {
+                  console.log('🔄 Reordering from', currentIndex, 'to', targetIndex);
+                  if (targetIndex < currentIndex) {
+                    parent.insertBefore(element, siblings[targetIndex]);
+                  } else {
+                    parent.insertBefore(element, siblings[targetIndex].nextSibling);
+                  }
+
+                  window.parent.postMessage({
+                    type: 'LAYOUT_CHANGE',
+                    data: {
+                      elementOrder: Array.from(parent.children)
+                        .filter(child => child.hasAttribute('data-editable'))
+                        .map(child => child.getAttribute('data-editable'))
+                    }
+                  }, '*');
+                }
+              } else {
+                const x = e.clientX - parentRect.left - dragState.offsetX;
+                const y = e.clientY - parentRect.top - dragState.offsetY;
+
+                element.style.position = 'absolute';
+                element.style.left = x + 'px';
+                element.style.top = y + 'px';
+                element.style.zIndex = '1000';
+              }
+            });
+
+            document.addEventListener('mouseup', function() {
+              if (!dragState.isDragging) return;
+              console.log('🛑 Drag ended');
+
+              if (dragState.element) {
+                const element = dragState.element;
+                element.style.cursor = isAutoLayout ? 'move' : 'grab';
+                element.style.outline = isAutoLayout
+                  ? '2px dashed rgba(59, 130, 246, 0.5)'
+                  : '2px dashed rgba(34, 197, 94, 0.5)';
+
+                if (!isAutoLayout) {
+                  const elementId = element.getAttribute('data-editable');
+                  const x = parseFloat(element.style.left || '0');
+                  const y = parseFloat(element.style.top || '0');
+
+                  window.parent.postMessage({
+                    type: 'LAYOUT_CHANGE',
+                    data: {
+                      positions: {
+                        [elementId]: { x, y }
+                      }
+                    }
+                  }, '*');
+                }
+              }
+
+              dragState = {
+                isDragging: false,
+                element: null,
+                startX: 0,
+                startY: 0,
+                offsetX: 0,
+                offsetY: 0
+              };
+            });
           }
-        });
 
-        if (targetIndex !== currentIndex) {
-          if (targetIndex < currentIndex) {
-            parent.insertBefore(element, siblings[targetIndex]);
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupDraggables);
           } else {
-            parent.insertBefore(element, siblings[targetIndex].nextSibling);
+            setupDraggables();
           }
+        })();
+      </script>
+    `;
 
-          if (onLayoutChange) {
-            const newOrder = Array.from(parent.children)
-              .filter((child) => child.hasAttribute('data-editable'))
-              .map((child) => child.getAttribute('data-editable') || '');
-            onLayoutChange({ elementOrder: newOrder });
-          }
-        }
-      } else {
-        const x = e.clientX - parentRect.left - dragStart.x;
-        const y = e.clientY - parentRect.top - dragStart.y;
+    if (html.includes('</body>')) {
+      return html.replace('</body>', `${dragScript}</body>`);
+    } else {
+      return html + dragScript;
+    }
+  }, [isAutoLayout]);
 
-        element.style.position = 'absolute';
-        element.style.left = `${x}px`;
-        element.style.top = `${y}px`;
-        element.style.zIndex = '1000';
-
-        if (onLayoutChange) {
-          const elementId = element.getAttribute('data-editable') || '';
-          onLayoutChange({
-            positions: {
-              [elementId]: { x, y },
-            },
-          });
-        }
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'LAYOUT_CHANGE' && onLayoutChangeRef.current) {
+        console.log('📨 Received layout change:', event.data.data);
+        onLayoutChangeRef.current(event.data.data);
       }
     };
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setDraggedElement(null);
-      doc.removeEventListener('mousemove', handleMouseMove);
-      doc.removeEventListener('mouseup', handleMouseUp);
-    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
-    doc.addEventListener('mousemove', handleMouseMove);
-    doc.addEventListener('mouseup', handleMouseUp);
-  };
+  useEffect(() => {
+    if (!iframeRef.current) return;
+
+    const iframe = iframeRef.current;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+
+    if (!doc) return;
+
+    const htmlWithScript = injectDragScript(htmlContent);
+
+    doc.open();
+    doc.write(htmlWithScript);
+    doc.close();
+
+    console.log('🎨 Iframe content updated');
+  }, [htmlContent, injectDragScript]);
 
   return (
     <div className="flex items-center justify-center w-full h-full bg-gray-900 overflow-auto p-8">
@@ -145,7 +248,7 @@ const SlideCanvas: React.FC<SlideCanvasProps> = ({ htmlContent, zoom, isAutoLayo
             height: '1350px',
             border: 'none',
           }}
-          sandbox="allow-same-origin"
+          sandbox="allow-same-origin allow-scripts"
         />
       </div>
     </div>
