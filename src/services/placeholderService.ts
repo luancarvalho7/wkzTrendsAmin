@@ -42,73 +42,98 @@ export class PlaceholderService {
   }
 
   private injectStyles(html: string, styles: SlideStyles, transforms: SlideTransform): string {
-    const styleTag = `
-      <style id="editor-styles">
-        :root {
-          --title-color: ${styles.titleColor || '#000000'};
-          --title-font-size: ${styles.titleFontSize || '24px'};
-          --title-font-family: ${styles.titleFontFamily || 'Arial, sans-serif'};
-          --title-font-weight: ${styles.titleFontWeight || 'bold'};
-          --title-text-align: ${styles.titleTextAlign || 'center'};
-          --title-transform-x: ${transforms.titleX || 0}px;
-          --title-transform-y: ${transforms.titleY || 0}px;
-          --title-rotation: ${transforms.titleRotation || 0}deg;
-          --title-scale: ${transforms.titleScale || 1};
+    const titleStyles: string[] = [];
+    const subtitleStyles: string[] = [];
+    const backgroundStyles: string[] = [];
 
-          --subtitle-color: ${styles.subtitleColor || '#333333'};
-          --subtitle-font-size: ${styles.subtitleFontSize || '16px'};
-          --subtitle-font-family: ${styles.subtitleFontFamily || 'Arial, sans-serif'};
-          --subtitle-font-weight: ${styles.subtitleFontWeight || 'normal'};
-          --subtitle-text-align: ${styles.subtitleTextAlign || 'center'};
-          --subtitle-transform-x: ${transforms.subtitleX || 0}px;
-          --subtitle-transform-y: ${transforms.subtitleY || 0}px;
-          --subtitle-rotation: ${transforms.subtitleRotation || 0}deg;
-          --subtitle-scale: ${transforms.subtitleScale || 1};
+    if (styles.titleColor) titleStyles.push(`color: ${styles.titleColor} !important;`);
+    if (styles.titleFontSize) titleStyles.push(`font-size: ${styles.titleFontSize} !important;`);
+    if (styles.titleFontFamily) titleStyles.push(`font-family: ${styles.titleFontFamily} !important;`);
+    if (styles.titleFontWeight) titleStyles.push(`font-weight: ${styles.titleFontWeight} !important;`);
+    if (styles.titleTextAlign) titleStyles.push(`text-align: ${styles.titleTextAlign} !important;`);
 
-          --background-color: ${styles.backgroundColor || 'transparent'};
-          --background-opacity: ${styles.backgroundOpacity || '1'};
-          --overlay-color: ${styles.overlayColor || 'transparent'};
-          --overlay-opacity: ${styles.overlayOpacity || '0'};
-          --background-scale: ${transforms.backgroundScale || 1};
-          --background-transform-x: ${transforms.backgroundX || 0}px;
-          --background-transform-y: ${transforms.backgroundY || 0}px;
-        }
+    if (styles.subtitleColor) subtitleStyles.push(`color: ${styles.subtitleColor} !important;`);
+    if (styles.subtitleFontSize) subtitleStyles.push(`font-size: ${styles.subtitleFontSize} !important;`);
+    if (styles.subtitleFontFamily) subtitleStyles.push(`font-family: ${styles.subtitleFontFamily} !important;`);
+    if (styles.subtitleFontWeight) subtitleStyles.push(`font-weight: ${styles.subtitleFontWeight} !important;`);
+    if (styles.subtitleTextAlign) subtitleStyles.push(`text-align: ${styles.subtitleTextAlign} !important;`);
 
+    if (styles.backgroundColor) backgroundStyles.push(`background-color: ${styles.backgroundColor} !important;`);
+    if (styles.backgroundOpacity) backgroundStyles.push(`opacity: ${styles.backgroundOpacity} !important;`);
+
+    const titleTransformParts: string[] = [];
+    if (transforms.titleX || transforms.titleY) {
+      titleTransformParts.push(`translate(${transforms.titleX || 0}px, ${transforms.titleY || 0}px)`);
+    }
+    if (transforms.titleRotation) {
+      titleTransformParts.push(`rotate(${transforms.titleRotation}deg)`);
+    }
+    if (transforms.titleScale && transforms.titleScale !== 1) {
+      titleTransformParts.push(`scale(${transforms.titleScale})`);
+    }
+    if (titleTransformParts.length > 0) {
+      titleStyles.push(`transform: ${titleTransformParts.join(' ')} !important;`);
+    }
+
+    const subtitleTransformParts: string[] = [];
+    if (transforms.subtitleX || transforms.subtitleY) {
+      subtitleTransformParts.push(`translate(${transforms.subtitleX || 0}px, ${transforms.subtitleY || 0}px)`);
+    }
+    if (transforms.subtitleRotation) {
+      subtitleTransformParts.push(`rotate(${transforms.subtitleRotation}deg)`);
+    }
+    if (transforms.subtitleScale && transforms.subtitleScale !== 1) {
+      subtitleTransformParts.push(`scale(${transforms.subtitleScale})`);
+    }
+    if (subtitleTransformParts.length > 0) {
+      subtitleStyles.push(`transform: ${subtitleTransformParts.join(' ')} !important;`);
+    }
+
+    const backgroundTransformParts: string[] = [];
+    if (transforms.backgroundX || transforms.backgroundY) {
+      backgroundTransformParts.push(`translate(${transforms.backgroundX || 0}px, ${transforms.backgroundY || 0}px)`);
+    }
+    if (transforms.backgroundScale && transforms.backgroundScale !== 1) {
+      backgroundTransformParts.push(`scale(${transforms.backgroundScale})`);
+    }
+    if (backgroundTransformParts.length > 0) {
+      backgroundStyles.push(`transform: ${backgroundTransformParts.join(' ')} !important;`);
+    }
+
+    let cssRules = '';
+
+    if (titleStyles.length > 0) {
+      cssRules += `
         [data-editable="title"],
         *[class*="title"],
         *[id*="title"],
         h1, h2, h3 {
-          color: var(--title-color) !important;
-          font-size: var(--title-font-size) !important;
-          font-family: var(--title-font-family) !important;
-          font-weight: var(--title-font-weight) !important;
-          text-align: var(--title-text-align) !important;
-          transform: translate(var(--title-transform-x), var(--title-transform-y))
-                     rotate(var(--title-rotation))
-                     scale(var(--title-scale)) !important;
+          ${titleStyles.join('\n          ')}
         }
+      `;
+    }
 
+    if (subtitleStyles.length > 0) {
+      cssRules += `
         [data-editable="subtitle"],
         *[class*="subtitle"],
         *[id*="subtitle"],
         p, span {
-          color: var(--subtitle-color) !important;
-          font-size: var(--subtitle-font-size) !important;
-          font-family: var(--subtitle-font-family) !important;
-          font-weight: var(--subtitle-font-weight) !important;
-          text-align: var(--subtitle-text-align) !important;
-          transform: translate(var(--subtitle-transform-x), var(--subtitle-transform-y))
-                     rotate(var(--subtitle-rotation))
-                     scale(var(--subtitle-scale)) !important;
+          ${subtitleStyles.join('\n          ')}
         }
+      `;
+    }
 
+    if (backgroundStyles.length > 0) {
+      cssRules += `
         [data-editable="background"] {
-          background-color: var(--background-color) !important;
-          opacity: var(--background-opacity) !important;
-          transform: translate(var(--background-transform-x), var(--background-transform-y))
-                     scale(var(--background-scale)) !important;
+          ${backgroundStyles.join('\n          ')}
         }
+      `;
+    }
 
+    if (styles.overlayColor || styles.overlayOpacity) {
+      cssRules += `
         [data-editable="overlay"]::after {
           content: '';
           position: absolute;
@@ -116,12 +141,14 @@ export class PlaceholderService {
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: var(--overlay-color);
-          opacity: var(--overlay-opacity);
+          ${styles.overlayColor ? `background-color: ${styles.overlayColor};` : ''}
+          ${styles.overlayOpacity ? `opacity: ${styles.overlayOpacity};` : ''}
           pointer-events: none;
         }
-      </style>
-    `;
+      `;
+    }
+
+    const styleTag = cssRules ? `<style id="editor-styles">${cssRules}</style>` : '';
 
     if (html.includes('</head>')) {
       return html.replace('</head>', `${styleTag}</head>`);
