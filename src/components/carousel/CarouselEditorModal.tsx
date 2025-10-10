@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
-import { CarouselData, EditorSlide, SlideStyles, SlideTransform } from '../../types/carousel';
+import { CarouselData, EditorSlide, SlideStyles, SlideTransform, EditableElementInfo } from '../../types/carousel';
 import { templateService } from '../../services/templateService';
 import { placeholderService } from '../../services/placeholderService';
 import { exportService } from '../../services/exportService';
 import EditorToolbar from './EditorToolbar';
-import InteractiveCanvas, { EditableElement } from './InteractiveCanvas';
+import InteractiveCanvas from './InteractiveCanvas';
 import SlideNavigator from './SlideNavigator';
 import TemplateSelector from './TemplateSelector';
 import ItemPropertiesPanel from './ItemPropertiesPanel';
@@ -29,7 +29,8 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   const [currentTemplate, setCurrentTemplate] = useState('');
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [selectedElement, setSelectedElement] = useState<EditableElement>(null);
+  const [selectedElement, setSelectedElement] = useState<EditableElementInfo | null>(null);
+  const [elementStyles, setElementStyles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -129,12 +130,24 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, styles: newStyles } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
-  const handleContentChange = useCallback((key: string, value: string) => {
+  const handleContentChange = useCallback((element: EditableElementInfo, content: string) => {
+    console.log('Content change for element:', element.selector, content);
+  }, []);
+
+  const handleElementStyleChange = useCallback((element: EditableElementInfo, styles: Record<string, string>) => {
+    console.log('Style change for element:', element.selector, styles);
     const currentSlide = slides[currentSlideIndex];
-    const newContent = { ...currentSlide.content, [key]: value };
-    updateSlide(currentSlideIndex, { content: newContent });
-    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, content: newContent } : s));
+    const newStyles = { ...currentSlide.styles, [element.selector]: styles };
+    updateSlide(currentSlideIndex, { styles: newStyles });
+    setElementStyles(styles);
+    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, styles: newStyles } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
+
+  const handleStylePropertyChange = useCallback((property: string, value: string) => {
+    if (!selectedElement) return;
+    const updatedStyles = { ...elementStyles, [property]: value };
+    handleElementStyleChange(selectedElement, updatedStyles);
+  }, [selectedElement, elementStyles, handleElementStyleChange]);
 
   const handleBackgroundChange = useCallback((imageUrl: string, index: number) => {
     updateSlide(currentSlideIndex, {
@@ -143,9 +156,16 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, selectedBackgroundIndex: index } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
-  const handleElementSelect = useCallback((element: EditableElement) => {
+  const handleElementSelect = useCallback((element: EditableElementInfo | null) => {
     setSelectedElement(element);
-  }, []);
+    if (element) {
+      const currentSlide = slides[currentSlideIndex];
+      const slideElementStyles = currentSlide.styles[element.selector] || {};
+      setElementStyles(slideElementStyles);
+    } else {
+      setElementStyles({});
+    }
+  }, [slides, currentSlideIndex]);
 
   const handleSlideChange = useCallback((index: number) => {
     setCurrentSlideIndex(index);
@@ -319,19 +339,16 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
               zoom={zoom}
               selectedElement={selectedElement}
               onElementSelect={handleElementSelect}
+              onStyleChange={handleElementStyleChange}
               onContentChange={handleContentChange}
             />
           </div>
 
-          {currentSlide && (
-            <ItemPropertiesPanel
-              selectedElement={selectedElement}
-              slideContent={currentSlide.content}
-              selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
-              onContentChange={handleContentChange}
-              onBackgroundChange={handleBackgroundChange}
-            />
-          )}
+          <ItemPropertiesPanel
+            selectedElement={selectedElement}
+            elementStyles={elementStyles}
+            onStyleChange={handleStylePropertyChange}
+          />
         </div>
       </div>
     </div>

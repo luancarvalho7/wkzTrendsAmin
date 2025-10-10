@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-
-export type EditableElement = 'title' | 'subtitle' | 'background' | null;
+import { EditableElementInfo } from '../../types/carousel';
+import { detectEditableElements, getElementStyles, applyStylesToElement } from '../../utils/elementDetector';
 
 interface InteractiveCanvasProps {
   htmlContent: string;
   zoom: number;
-  selectedElement: EditableElement;
-  onElementSelect: (element: EditableElement) => void;
-  onContentChange?: (key: string, value: string) => void;
+  selectedElement: EditableElementInfo | null;
+  onElementSelect: (element: EditableElementInfo | null) => void;
+  onStyleChange?: (element: EditableElementInfo, styles: Record<string, string>) => void;
+  onContentChange?: (element: EditableElementInfo, content: string) => void;
 }
 
 interface ElementBounds {
@@ -15,7 +16,7 @@ interface ElementBounds {
   y: number;
   width: number;
   height: number;
-  element: EditableElement;
+  info: EditableElementInfo;
 }
 
 const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
@@ -23,15 +24,18 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   zoom,
   selectedElement,
   onElementSelect,
+  onStyleChange,
   onContentChange,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [elementBounds, setElementBounds] = useState<ElementBounds[]>([]);
+  const [editableElements, setEditableElements] = useState<EditableElementInfo[]>([]);
   const [isEditingInline, setIsEditingInline] = useState(false);
   const [inlineText, setInlineText] = useState('');
   const [clickCount, setClickCount] = useState(0);
   const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const elementStylesCache = useRef<Map<string, Record<string, string>>>(new Map());
 
   useEffect(() => {
     if (iframeRef.current) {
@@ -44,17 +48,43 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         doc.close();
 
         setTimeout(() => {
-          updateElementBounds();
+          const elements = detectEditableElements(doc);
+          console.log('Detected editable elements:', elements);
+          setEditableElements(elements);
+          updateElementBounds(elements);
+
+          elements.forEach(el => {
+            const styles = getElementStyles(el.element);
+            elementStylesCache.current.set(el.selector, styles);
+          });
         }, 100);
       }
     }
   }, [htmlContent]);
 
   useEffect(() => {
-    updateElementBounds();
-  }, [zoom]);
+    updateElementBounds(editableElements);
+  }, [zoom, editableElements]);
 
-  const updateElementBounds = useCallback(() => {
+  useEffect(() => {
+    if (selectedElement && onStyleChange) {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) return;
+
+      const element = doc.querySelector(selectedElement.selector) as HTMLElement;
+      if (element) {
+        const currentStyles = elementStylesCache.current.get(selectedElement.selector);
+        if (currentStyles) {
+          applyStylesToElement(element, currentStyles);
+        }
+      }
+    }
+  }, [selectedElement]);
+
+  const updateElementBounds = useCallback((elements: EditableElementInfo[]) => {
     if (!iframeRef.current) return;
 
     const iframe = iframeRef.current;
@@ -62,43 +92,20 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     if (!doc) return;
 
     const bounds: ElementBounds[] = [];
-    const iframeRect = iframe.getBoundingClientRect();
 
-    const titleElement = doc.querySelector('[data-editable="title"]') as HTMLElement;
-    if (titleElement) {
-      const rect = titleElement.getBoundingClientRect();
-      bounds.push({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-        element: 'title',
-      });
-    }
-
-    const subtitleElement = doc.querySelector('[data-editable="subtitle"]') as HTMLElement;
-    if (subtitleElement) {
-      const rect = subtitleElement.getBoundingClientRect();
-      bounds.push({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-        element: 'subtitle',
-      });
-    }
-
-    const backgroundElement = doc.querySelector('[data-editable="background"]') as HTMLElement;
-    if (backgroundElement) {
-      const rect = backgroundElement.getBoundingClientRect();
-      bounds.push({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-        element: 'background',
-      });
-    }
+    elements.forEach(info => {
+      const element = doc.querySelector(info.selector) as HTMLElement;
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        bounds.push({
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+          info,
+        });
+      }
+    });
 
     setElementBounds(bounds);
   }, []);
@@ -112,7 +119,8 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     const clickX = e.clientX;
     const clickY = e.clientY;
 
-    let foundElement: EditableElement = null;
+    let foundBound: ElementBounds | null = null;
+    let minArea = Infinity;
 
     for (const bound of elementBounds) {
       const adjustedBound = {
@@ -128,8 +136,11 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         clickY >= adjustedBound.y &&
         clickY <= adjustedBound.y + adjustedBound.height
       ) {
-        foundElement = bound.element;
-        break;
+        const area = bound.width * bound.height;
+        if (area < minArea) {
+          minArea = area;
+          foundBound = bound;
+        }
       }
     }
 
@@ -140,34 +151,44 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     }
 
     clickTimerRef.current = setTimeout(() => {
-      if (clickCount + 1 === 2 && foundElement && (foundElement === 'title' || foundElement === 'subtitle')) {
-        startInlineEditing(foundElement);
+      if (clickCount + 1 === 2 && foundBound && foundBound.info.type === 'text') {
+        startInlineEditing(foundBound.info);
       } else {
-        onElementSelect(foundElement);
+        onElementSelect(foundBound ? foundBound.info : null);
       }
       setClickCount(0);
     }, 300);
   }, [elementBounds, zoom, onElementSelect, clickCount, isEditingInline]);
 
-  const startInlineEditing = useCallback((element: 'title' | 'subtitle') => {
+  const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
     if (!iframeRef.current) return;
 
     const doc = iframeRef.current.contentDocument;
     if (!doc) return;
 
-    const targetElement = doc.querySelector(`[data-editable="${element}"]`) as HTMLElement;
+    const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
     if (!targetElement) return;
 
     const currentText = targetElement.textContent || '';
     setInlineText(currentText);
     setIsEditingInline(true);
-    onElementSelect(element);
+    onElementSelect(elementInfo);
   }, [onElementSelect]);
 
   const finishInlineEditing = useCallback(() => {
-    if (selectedElement && (selectedElement === 'title' || selectedElement === 'subtitle')) {
+    if (selectedElement && selectedElement.type === 'text') {
       if (onContentChange) {
         onContentChange(selectedElement, inlineText);
+      }
+
+      if (iframeRef.current) {
+        const doc = iframeRef.current.contentDocument;
+        if (doc) {
+          const element = doc.querySelector(selectedElement.selector) as HTMLElement;
+          if (element) {
+            element.textContent = inlineText;
+          }
+        }
       }
     }
     setIsEditingInline(false);
@@ -201,7 +222,8 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   }, [onElementSelect, isEditingInline, finishInlineEditing]);
 
   const getSelectedBound = () => {
-    return elementBounds.find(b => b.element === selectedElement);
+    if (!selectedElement) return null;
+    return elementBounds.find(b => b.info.selector === selectedElement.selector);
   };
 
   const selectedBound = getSelectedBound();
@@ -247,15 +269,16 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
               borderRadius: '4px',
               pointerEvents: 'none',
               boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
+              zIndex: 10,
             }}
           >
-            <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-              {selectedBound.element}
+            <div className="absolute -top-7 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+              {selectedBound.info.label}
             </div>
           </div>
         )}
 
-        {isEditingInline && selectedBound && (selectedElement === 'title' || selectedElement === 'subtitle') && (
+        {isEditingInline && selectedBound && selectedElement?.type === 'text' && (
           <textarea
             value={inlineText}
             onChange={(e) => setInlineText(e.target.value)}
@@ -276,6 +299,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
               resize: 'none',
               outline: 'none',
               boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+              zIndex: 20,
             }}
           />
         )}
