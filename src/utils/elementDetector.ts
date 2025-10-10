@@ -1,189 +1,67 @@
 import { EditableElementInfo } from '../types/carousel';
 
-const IGNORED_TAGS = ['HTML', 'HEAD', 'BODY', 'SCRIPT', 'STYLE', 'META', 'LINK'];
-const MIN_TEXT_LENGTH = 1;
-
 export function detectEditableElements(doc: Document): EditableElementInfo[] {
   const elements: EditableElementInfo[] = [];
-  const seenElements = new Set<HTMLElement>();
   const win = doc.defaultView || window;
 
-  function isVisible(el: HTMLElement): boolean {
-    const style = win.getComputedStyle(el);
-    return style.display !== 'none' &&
-           style.visibility !== 'hidden' &&
-           style.opacity !== '0' &&
-           el.offsetWidth > 0 &&
-           el.offsetHeight > 0;
-  }
-
-  function hasTextContent(el: HTMLElement): boolean {
-    const text = el.textContent?.trim() || '';
-    return text.length >= MIN_TEXT_LENGTH;
-  }
-
-  function isTextElement(el: HTMLElement): boolean {
-    const directText = Array.from(el.childNodes)
-      .filter(node => node.nodeType === Node.TEXT_NODE)
-      .map(node => node.textContent?.trim() || '')
-      .join('');
-
-    return directText.length >= MIN_TEXT_LENGTH;
-  }
-
-  function hasBackgroundImage(el: HTMLElement): boolean {
-    const style = win.getComputedStyle(el);
-    return style.backgroundImage !== 'none';
-  }
-
-  function hasBackgroundColor(el: HTMLElement): boolean {
-    const style = win.getComputedStyle(el);
-    const bgColor = style.backgroundColor;
-    return bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent';
-  }
-
-  function containsImage(el: HTMLElement): boolean {
-    return el.tagName === 'IMG' ||
-           (el.children.length === 1 && el.children[0].tagName === 'IMG');
-  }
-
-  function getElementLabel(el: HTMLElement, type: EditableElementInfo['type']): string {
-    if (el.hasAttribute('data-editable')) {
-      const label = el.getAttribute('data-editable') || '';
-      return label.charAt(0).toUpperCase() + label.slice(1);
-    }
-
-    const id = el.id;
-    if (id) {
-      return id.split(/[-_]/).map(word =>
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-    }
-
-    const classList = Array.from(el.classList);
-    const meaningfulClass = classList.find(cls =>
-      !cls.startsWith('absolute') &&
-      !cls.startsWith('relative') &&
-      !cls.startsWith('flex') &&
-      !cls.startsWith('w-') &&
-      !cls.startsWith('h-') &&
-      !cls.startsWith('p-') &&
-      !cls.startsWith('m-') &&
-      !cls.startsWith('text-') &&
-      !cls.startsWith('bg-')
-    );
-
-    if (meaningfulClass) {
-      return meaningfulClass.split(/[-_]/).map(word =>
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-    }
-
-    if (type === 'text') {
-      const text = el.textContent?.trim() || '';
-      if (text.length > 0) {
-        const preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
-        return preview;
-      }
-    }
-
-    return `${el.tagName.toLowerCase()}`;
-  }
-
-  function generateSelector(el: HTMLElement): string {
-    if (el.id) return `#${el.id}`;
-
-    if (el.hasAttribute('data-editable')) {
-      return `[data-editable="${el.getAttribute('data-editable')}"]`;
-    }
-
-    const parent = el.parentElement;
-    if (!parent || parent === doc.body) {
-      const siblings = Array.from(doc.body.children);
-      const index = siblings.indexOf(el);
-      return `body > ${el.tagName.toLowerCase()}:nth-child(${index + 1})`;
-    }
-
-    const siblings = Array.from(parent.children);
-    const sameTagSiblings = siblings.filter(s => s.tagName === el.tagName);
-
-    if (sameTagSiblings.length === 1) {
-      return `${generateSelector(parent)} > ${el.tagName.toLowerCase()}`;
-    }
-
-    const index = sameTagSiblings.indexOf(el);
-    return `${generateSelector(parent)} > ${el.tagName.toLowerCase()}:nth-of-type(${index + 1})`;
-  }
-
-  function traverse(element: Element, depth: number = 0) {
-    if (depth > 20) return;
-    if (!(element instanceof HTMLElement)) return;
-    if (IGNORED_TAGS.includes(element.tagName)) return;
-    if (seenElements.has(element)) return;
-
-    const visible = isVisible(element);
-    if (!visible) {
-      console.log('Element not visible:', element.tagName, element.className);
-      return;
-    }
-
-    let elementAdded = false;
-
-    if (hasBackgroundImage(element) || hasBackgroundColor(element)) {
-      seenElements.add(element);
-      elements.push({
-        type: 'background',
-        selector: generateSelector(element),
-        label: getElementLabel(element, 'background') + ' (Background)',
-        element: element,
-      });
-      elementAdded = true;
-      console.log('Found background element:', element.tagName, element.className);
-    }
-
-    if (containsImage(element)) {
-      if (!elementAdded) seenElements.add(element);
-      const imgEl = element.tagName === 'IMG' ? element : element.querySelector('img');
-      if (imgEl) {
-        elements.push({
-          type: 'image',
-          selector: generateSelector(element),
-          label: getElementLabel(element, 'image') + ' (Image)',
-          element: element,
-        });
-        elementAdded = true;
-        console.log('Found image element:', element.tagName, element.className);
-      }
-    }
-
-    if (isTextElement(element) && !containsImage(element)) {
-      const hasTextChildren = Array.from(element.children).some(child =>
-        child instanceof HTMLElement && isTextElement(child)
-      );
-
-      if (!hasTextChildren) {
-        if (!elementAdded) seenElements.add(element);
-        elements.push({
-          type: 'text',
-          selector: generateSelector(element),
-          label: getElementLabel(element, 'text'),
-          element: element,
-        });
-        elementAdded = true;
-        console.log('Found text element:', element.tagName, element.textContent?.substring(0, 30));
-        return;
-      }
-    }
-
-    for (const child of Array.from(element.children)) {
-      traverse(child, depth + 1);
-    }
-  }
-
   console.log('Starting element detection...');
-  traverse(doc.body);
-  console.log('Detection complete. Found elements:', elements.length);
+  console.log('Document body:', doc.body);
+  console.log('Body children:', doc.body?.children.length);
 
+  const knownSelectors = [
+    { selector: '.title', type: 'text' as const, label: 'Title' },
+    { selector: '.subtitle', type: 'text' as const, label: 'Subtitle' },
+    { selector: '.photo', type: 'background' as const, label: 'Background Image' },
+  ];
+
+  knownSelectors.forEach(({ selector, type, label }) => {
+    const element = doc.querySelector(selector) as HTMLElement;
+    if (element) {
+      console.log(`Found ${label}:`, element);
+      elements.push({
+        type,
+        selector,
+        label,
+        element,
+      });
+    } else {
+      console.log(`${label} not found with selector: ${selector}`);
+    }
+  });
+
+  if (elements.length === 0) {
+    console.log('No known elements found, trying to find any text elements...');
+
+    const allElements = doc.body.querySelectorAll('*');
+    console.log('Total elements in body:', allElements.length);
+
+    allElements.forEach((el, index) => {
+      if (!(el instanceof HTMLElement)) return;
+
+      const tag = el.tagName.toLowerCase();
+      const classes = Array.from(el.classList).join(' ');
+      const text = el.textContent?.trim().substring(0, 50);
+
+      console.log(`Element ${index}: ${tag}, classes: "${classes}", text: "${text}"`);
+
+      if (el.textContent && el.textContent.trim().length > 5) {
+        const directTextNodes = Array.from(el.childNodes).filter(
+          node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+        );
+
+        if (directTextNodes.length > 0) {
+          console.log('  -> Has direct text, could be editable');
+        }
+      }
+
+      const style = win.getComputedStyle(el);
+      if (style.backgroundImage && style.backgroundImage !== 'none') {
+        console.log('  -> Has background image:', style.backgroundImage.substring(0, 50));
+      }
+    });
+  }
+
+  console.log('Detection complete. Found elements:', elements.length);
   return elements;
 }
 
@@ -211,6 +89,8 @@ export function getElementStyles(element: HTMLElement): Record<string, string> {
     flexDirection: computed.flexDirection,
     gap: computed.gap,
     backgroundImage: computed.backgroundImage,
+    backgroundSize: computed.backgroundSize,
+    backgroundPosition: computed.backgroundPosition,
   };
 }
 
