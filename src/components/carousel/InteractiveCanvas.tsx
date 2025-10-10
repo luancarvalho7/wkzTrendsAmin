@@ -1,0 +1,287 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+
+export type EditableElement = 'title' | 'subtitle' | 'background' | null;
+
+interface InteractiveCanvasProps {
+  htmlContent: string;
+  zoom: number;
+  selectedElement: EditableElement;
+  onElementSelect: (element: EditableElement) => void;
+  onContentChange?: (key: string, value: string) => void;
+}
+
+interface ElementBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  element: EditableElement;
+}
+
+const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
+  htmlContent,
+  zoom,
+  selectedElement,
+  onElementSelect,
+  onContentChange,
+}) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [elementBounds, setElementBounds] = useState<ElementBounds[]>([]);
+  const [isEditingInline, setIsEditingInline] = useState(false);
+  const [inlineText, setInlineText] = useState('');
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (iframeRef.current) {
+      const iframe = iframeRef.current;
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+
+      if (doc) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        setTimeout(() => {
+          updateElementBounds();
+        }, 100);
+      }
+    }
+  }, [htmlContent]);
+
+  useEffect(() => {
+    updateElementBounds();
+  }, [zoom]);
+
+  const updateElementBounds = useCallback(() => {
+    if (!iframeRef.current) return;
+
+    const iframe = iframeRef.current;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+
+    const bounds: ElementBounds[] = [];
+    const iframeRect = iframe.getBoundingClientRect();
+
+    const titleElement = doc.querySelector('[data-editable="title"]') as HTMLElement;
+    if (titleElement) {
+      const rect = titleElement.getBoundingClientRect();
+      bounds.push({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        element: 'title',
+      });
+    }
+
+    const subtitleElement = doc.querySelector('[data-editable="subtitle"]') as HTMLElement;
+    if (subtitleElement) {
+      const rect = subtitleElement.getBoundingClientRect();
+      bounds.push({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        element: 'subtitle',
+      });
+    }
+
+    const backgroundElement = doc.querySelector('[data-editable="background"]') as HTMLElement;
+    if (backgroundElement) {
+      const rect = backgroundElement.getBoundingClientRect();
+      bounds.push({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        element: 'background',
+      });
+    }
+
+    setElementBounds(bounds);
+  }, []);
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    if (isEditingInline) return;
+
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+
+    const clickX = e.clientX;
+    const clickY = e.clientY;
+
+    let foundElement: EditableElement = null;
+
+    for (const bound of elementBounds) {
+      const adjustedBound = {
+        x: containerRect.left + (bound.x * zoom),
+        y: containerRect.top + (bound.y * zoom),
+        width: bound.width * zoom,
+        height: bound.height * zoom,
+      };
+
+      if (
+        clickX >= adjustedBound.x &&
+        clickX <= adjustedBound.x + adjustedBound.width &&
+        clickY >= adjustedBound.y &&
+        clickY <= adjustedBound.y + adjustedBound.height
+      ) {
+        foundElement = bound.element;
+        break;
+      }
+    }
+
+    setClickCount((prev) => prev + 1);
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      if (clickCount + 1 === 2 && foundElement && (foundElement === 'title' || foundElement === 'subtitle')) {
+        startInlineEditing(foundElement);
+      } else {
+        onElementSelect(foundElement);
+      }
+      setClickCount(0);
+    }, 300);
+  }, [elementBounds, zoom, onElementSelect, clickCount, isEditingInline]);
+
+  const startInlineEditing = useCallback((element: 'title' | 'subtitle') => {
+    if (!iframeRef.current) return;
+
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    const targetElement = doc.querySelector(`[data-editable="${element}"]`) as HTMLElement;
+    if (!targetElement) return;
+
+    const currentText = targetElement.textContent || '';
+    setInlineText(currentText);
+    setIsEditingInline(true);
+    onElementSelect(element);
+  }, [onElementSelect]);
+
+  const finishInlineEditing = useCallback(() => {
+    if (selectedElement && (selectedElement === 'title' || selectedElement === 'subtitle')) {
+      if (onContentChange) {
+        onContentChange(selectedElement, inlineText);
+      }
+    }
+    setIsEditingInline(false);
+  }, [selectedElement, inlineText, onContentChange]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (isEditingInline) {
+        finishInlineEditing();
+      } else {
+        onElementSelect(null);
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey && isEditingInline) {
+      e.preventDefault();
+      finishInlineEditing();
+    }
+  }, [isEditingInline, finishInlineEditing, onElementSelect]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onElementSelect(null);
+        if (isEditingInline) {
+          finishInlineEditing();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onElementSelect, isEditingInline, finishInlineEditing]);
+
+  const getSelectedBound = () => {
+    return elementBounds.find(b => b.element === selectedElement);
+  };
+
+  const selectedBound = getSelectedBound();
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex items-center justify-center w-full h-full bg-gray-900 overflow-auto p-8 relative"
+      onClick={handleCanvasClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
+      <div
+        style={{
+          transform: `scale(${zoom})`,
+          transformOrigin: 'center center',
+          transition: 'transform 0.2s ease',
+          position: 'relative',
+        }}
+      >
+        <iframe
+          ref={iframeRef}
+          title="Slide Preview"
+          className="bg-white rounded-lg shadow-2xl"
+          style={{
+            width: '1080px',
+            height: '1350px',
+            border: 'none',
+            pointerEvents: isEditingInline ? 'auto' : 'none',
+          }}
+          sandbox="allow-same-origin"
+        />
+
+        {selectedBound && !isEditingInline && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${selectedBound.x}px`,
+              top: `${selectedBound.y}px`,
+              width: `${selectedBound.width}px`,
+              height: `${selectedBound.height}px`,
+              border: '3px solid #3b82f6',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+              boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+              {selectedBound.element}
+            </div>
+          </div>
+        )}
+
+        {isEditingInline && selectedBound && (selectedElement === 'title' || selectedElement === 'subtitle') && (
+          <textarea
+            value={inlineText}
+            onChange={(e) => setInlineText(e.target.value)}
+            onBlur={finishInlineEditing}
+            autoFocus
+            style={{
+              position: 'absolute',
+              left: `${selectedBound.x}px`,
+              top: `${selectedBound.y}px`,
+              width: `${selectedBound.width}px`,
+              height: `${selectedBound.height}px`,
+              border: '3px solid #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '8px',
+              fontSize: '16px',
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default InteractiveCanvas;

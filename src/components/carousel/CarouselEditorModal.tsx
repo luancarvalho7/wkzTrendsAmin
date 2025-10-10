@@ -5,12 +5,10 @@ import { templateService } from '../../services/templateService';
 import { placeholderService } from '../../services/placeholderService';
 import { exportService } from '../../services/exportService';
 import EditorToolbar from './EditorToolbar';
-import SlideCanvas from './SlideCanvas';
+import InteractiveCanvas, { EditableElement } from './InteractiveCanvas';
 import SlideNavigator from './SlideNavigator';
-import StylePanel from './StylePanel';
 import TemplateSelector from './TemplateSelector';
-import BackgroundSelector from './BackgroundSelector';
-import ContentEditor from './ContentEditor';
+import ItemPropertiesPanel from './ItemPropertiesPanel';
 
 interface CarouselEditorModalProps {
   isOpen: boolean;
@@ -31,7 +29,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   const [currentTemplate, setCurrentTemplate] = useState('');
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [activeStyleTab, setActiveStyleTab] = useState<'text' | 'colors' | 'background'>('text');
+  const [selectedElement, setSelectedElement] = useState<EditableElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -144,6 +142,15 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     });
     saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, selectedBackgroundIndex: index } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
+
+  const handleElementSelect = useCallback((element: EditableElement) => {
+    setSelectedElement(element);
+  }, []);
+
+  const handleSlideChange = useCallback((index: number) => {
+    setCurrentSlideIndex(index);
+    setSelectedElement(null);
+  }, []);
 
   const handleTemplateChange = async (templateId: string) => {
     if (templateId === currentTemplate) return;
@@ -299,36 +306,30 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
               onTemplateChange={handleTemplateChange}
               isLoading={isLoading}
             />
-            {currentSlide && (
-              <>
-                <ContentEditor
-                  content={currentSlide.content}
-                  onContentChange={handleContentChange}
-                />
-                <BackgroundSelector
-                  slideContent={currentSlide.content}
-                  selectedIndex={currentSlide.selectedBackgroundIndex}
-                  onBackgroundChange={handleBackgroundChange}
-                />
-              </>
-            )}
             <SlideNavigator
               slides={slides}
               currentIndex={currentSlideIndex}
-              onSlideChange={setCurrentSlideIndex}
+              onSlideChange={handleSlideChange}
             />
           </div>
 
           <div className="flex-1">
-            <SlideCanvas htmlContent={currentHtml} zoom={zoom} />
+            <InteractiveCanvas
+              htmlContent={currentHtml}
+              zoom={zoom}
+              selectedElement={selectedElement}
+              onElementSelect={handleElementSelect}
+              onContentChange={handleContentChange}
+            />
           </div>
 
           {currentSlide && (
-            <StylePanel
-              styles={currentSlide.styles}
-              onStyleChange={handleStyleChange}
-              activeTab={activeStyleTab}
-              onTabChange={setActiveStyleTab}
+            <ItemPropertiesPanel
+              selectedElement={selectedElement}
+              slideContent={currentSlide.content}
+              selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
+              onContentChange={handleContentChange}
+              onBackgroundChange={handleBackgroundChange}
             />
           )}
         </div>

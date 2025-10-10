@@ -5,12 +5,10 @@ import { templateService } from '../services/templateService';
 import { placeholderService } from '../services/placeholderService';
 import { exportService } from '../services/exportService';
 import EditorToolbar from '../components/carousel/EditorToolbar';
-import SlideCanvas from '../components/carousel/SlideCanvas';
+import InteractiveCanvas, { EditableElement } from '../components/carousel/InteractiveCanvas';
 import SlideNavigator from '../components/carousel/SlideNavigator';
-import StylePanel from '../components/carousel/StylePanel';
 import TemplateSelector from '../components/carousel/TemplateSelector';
-import BackgroundSelector from '../components/carousel/BackgroundSelector';
-import ContentEditor from '../components/carousel/ContentEditor';
+import ItemPropertiesPanel from '../components/carousel/ItemPropertiesPanel';
 
 const CarouselEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,7 +23,7 @@ const CarouselEditorPage: React.FC = () => {
   const [currentTemplate, setCurrentTemplate] = useState('');
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [activeStyleTab, setActiveStyleTab] = useState<'text' | 'colors' | 'background'>('text');
+  const [selectedElement, setSelectedElement] = useState<EditableElement>(null);
 
   useEffect(() => {
     console.log('CarouselEditorPage mounted');
@@ -148,6 +146,15 @@ const CarouselEditorPage: React.FC = () => {
     });
   };
 
+  const handleElementSelect = (element: EditableElement) => {
+    setSelectedElement(element);
+  };
+
+  const handleSlideChange = (index: number) => {
+    setCurrentSlideIndex(index);
+    setSelectedElement(null);
+  };
+
   const handleTemplateChange = async (templateId: string) => {
     if (templateId === currentTemplate || !carouselData) return;
 
@@ -266,42 +273,36 @@ const CarouselEditorPage: React.FC = () => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-80 bg-gray-800 flex flex-col overflow-y-auto">
+        <div className="w-80 bg-black border-r border-white/20 flex flex-col overflow-y-auto">
           <TemplateSelector
             currentTemplate={currentTemplate}
             onTemplateChange={handleTemplateChange}
             isLoading={isLoading}
           />
-          {currentSlide && (
-            <>
-              <ContentEditor
-                content={currentSlide.content}
-                onContentChange={handleContentChange}
-              />
-              <BackgroundSelector
-                slideContent={currentSlide.content}
-                selectedIndex={currentSlide.selectedBackgroundIndex}
-                onBackgroundChange={handleBackgroundChange}
-              />
-            </>
-          )}
           <SlideNavigator
             slides={slides}
             currentIndex={currentSlideIndex}
-            onSlideChange={setCurrentSlideIndex}
+            onSlideChange={handleSlideChange}
           />
         </div>
 
         <div className="flex-1">
-          <SlideCanvas htmlContent={currentHtml} zoom={zoom} />
+          <InteractiveCanvas
+            htmlContent={currentHtml}
+            zoom={zoom}
+            selectedElement={selectedElement}
+            onElementSelect={handleElementSelect}
+            onContentChange={handleContentChange}
+          />
         </div>
 
         {currentSlide && (
-          <StylePanel
-            styles={currentSlide.styles}
-            onStyleChange={handleStyleChange}
-            activeTab={activeStyleTab}
-            onTabChange={setActiveStyleTab}
+          <ItemPropertiesPanel
+            selectedElement={selectedElement}
+            slideContent={currentSlide.content}
+            selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
+            onContentChange={handleContentChange}
+            onBackgroundChange={handleBackgroundChange}
           />
         )}
       </div>
