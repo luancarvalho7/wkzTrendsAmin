@@ -5,8 +5,7 @@ import { templateService } from '../services/templateService';
 import { placeholderService } from '../services/placeholderService';
 import { exportService } from '../services/exportService';
 import EditorToolbar from './EditorToolbar';
-import InteractiveCanvas from './InteractiveCanvas';
-import SlideNavigator from './SlideNavigator';
+import FigmaStyleCanvas from './FigmaStyleCanvas';
 import TemplateSelector from './TemplateSelector';
 import ItemPropertiesPanel from './ItemPropertiesPanel';
 
@@ -23,7 +22,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 }) => {
   const [slides, setSlides] = useState<EditorSlide[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [zoom, setZoom] = useState(0.55);
+  const [zoom, setZoom] = useState(0.35);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState('');
@@ -261,8 +260,8 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     }
   };
 
-  const handleZoomIn = () => setZoom(Math.min(zoom + 0.05, 0.6));
-  const handleZoomOut = () => setZoom(Math.max(zoom - 0.05, 0.2));
+  const handleZoomIn = () => setZoom(Math.min(zoom + 0.05, 2));
+  const handleZoomOut = () => setZoom(Math.max(zoom - 0.05, 0.1));
 
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -325,17 +324,21 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     );
   }
 
-  const currentSlide = slides[currentSlideIndex];
-  const currentHtml = currentSlide
-    ? placeholderService.replacePlaceholders(
-        currentSlide.htmlTemplate,
-        carouselData,
-        currentSlide.content,
-        currentSlide.styles,
-        currentSlide.transforms,
-        currentSlide.selectedBackgroundIndex
-      )
-    : '';
+  const allSlidesHtml = slides.map((slide) =>
+    placeholderService.replacePlaceholders(
+      slide.htmlTemplate,
+      carouselData,
+      slide.content,
+      slide.styles,
+      slide.transforms,
+      slide.selectedBackgroundIndex
+    )
+  );
+
+  const slidesData = slides.map((slide, index) => ({
+    id: slide.id,
+    htmlContent: allSlidesHtml[index],
+  }));
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black">
@@ -371,21 +374,19 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
               onTemplateChange={handleTemplateChange}
               isLoading={isLoading}
             />
-            <SlideNavigator
-              slides={slides}
-              currentIndex={currentSlideIndex}
-              onSlideChange={handleSlideChange}
-            />
           </div>
 
           <div className="flex-1">
-            <InteractiveCanvas
-              htmlContent={currentHtml}
+            <FigmaStyleCanvas
+              slides={slidesData}
               zoom={zoom}
+              onZoomChange={setZoom}
               selectedElement={selectedElement}
               onElementSelect={handleElementSelect}
               onStyleChange={handleElementStyleChange}
               onContentChange={handleContentChange}
+              currentSlideIndex={currentSlideIndex}
+              onSlideIndexChange={setCurrentSlideIndex}
             />
           </div>
 
