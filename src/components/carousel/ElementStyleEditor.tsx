@@ -1,6 +1,30 @@
 import React from 'react';
 import { EditableElementInfo } from '../../types/carousel';
 
+function rgbToHex(rgb: string): string {
+  if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') {
+    return '#000000';
+  }
+
+  if (rgb.startsWith('#')) {
+    return rgb;
+  }
+
+  const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) {
+    return '#000000';
+  }
+
+  const r = parseInt(match[1]);
+  const g = parseInt(match[2]);
+  const b = parseInt(match[3]);
+
+  return '#' + [r, g, b].map(x => {
+    const hex = x.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
 interface ElementStyleEditorProps {
   element: EditableElementInfo;
   styles: Record<string, string>;
@@ -13,20 +37,21 @@ const ElementStyleEditor: React.FC<ElementStyleEditorProps> = ({
   onStyleChange,
 }) => {
   const renderColorControl = (label: string, property: string) => {
-    const value = styles[property] || '#000000';
+    const rawValue = styles[property] || '#000000';
+    const hexValue = rgbToHex(rawValue);
     return (
       <div>
         <label className="block text-xs font-medium text-white/60 mb-2">{label}</label>
         <div className="flex items-center space-x-2">
           <input
             type="color"
-            value={value}
+            value={hexValue}
             onChange={(e) => onStyleChange(property, e.target.value)}
             className="w-10 h-10 rounded cursor-pointer border border-white/20"
           />
           <input
             type="text"
-            value={value}
+            value={hexValue}
             onChange={(e) => onStyleChange(property, e.target.value)}
             className="flex-1 bg-white/10 text-white text-sm border border-white/20 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="#000000"
@@ -151,15 +176,7 @@ const ElementStyleEditor: React.FC<ElementStyleEditorProps> = ({
       <div className="space-y-4">
         <div className="space-y-3">
           <h4 className="text-xs font-semibold text-white/80 uppercase tracking-wider">Background</h4>
-          {renderColorControl('Background Color', 'backgroundColor')}
           {renderOpacityControl('Opacity', 'opacity')}
-        </div>
-
-        <div className="border-t border-white/10 pt-4 space-y-3">
-          <h4 className="text-xs font-semibold text-white/80 uppercase tracking-wider">Layout</h4>
-          {renderTextControl('Width', 'width', '100%')}
-          {renderTextControl('Height', 'height', 'auto')}
-          {renderTextControl('Border Radius', 'borderRadius', '0px')}
         </div>
       </div>
     );

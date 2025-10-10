@@ -145,6 +145,13 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     const newStyles = { ...currentSlide.styles, [element.selector]: styles };
     updateSlide(currentSlideIndex, { styles: newStyles });
     setElementStyles(styles);
+
+    Object.entries(styles).forEach(([key, value]) => {
+      if (value) {
+        element.element.style[key as any] = value;
+      }
+    });
+
     saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, styles: newStyles } : s));
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
@@ -166,6 +173,29 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     setSelectedElement(element);
     if (!element) {
       setElementStyles({});
+    } else {
+      const doc = element.element.ownerDocument;
+      const win = doc.defaultView || window;
+      const computed = win.getComputedStyle(element.element);
+      const styles = {
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        fontSize: computed.fontSize,
+        fontFamily: computed.fontFamily,
+        fontWeight: computed.fontWeight,
+        textAlign: computed.textAlign,
+        opacity: computed.opacity,
+        borderRadius: computed.borderRadius,
+        padding: computed.padding,
+        margin: computed.margin,
+        width: computed.width,
+        height: computed.height,
+        backgroundImage: computed.backgroundImage,
+        backgroundSize: computed.backgroundSize,
+        backgroundPosition: computed.backgroundPosition,
+      };
+      console.log('Loaded element styles:', styles);
+      setElementStyles(styles);
     }
   }, []);
 
