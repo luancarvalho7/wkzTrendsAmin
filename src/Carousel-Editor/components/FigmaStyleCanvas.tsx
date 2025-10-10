@@ -33,8 +33,8 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
   const [isEditingInline, setIsEditingInline] = useState(false);
 
   const SLIDE_WIDTH = 1080;
-  const SLIDE_HEIGHT = 1920;
-  const SLIDE_SPACING = 100;
+  const SLIDE_HEIGHT = 1350;
+  const SLIDE_SPACING = 40;
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -60,9 +60,11 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
   }, [handleWheel]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 0 && (e.target as HTMLElement).classList.contains('canvas-background')) {
+    const target = e.target as HTMLElement;
+    if (e.button === 0 && (target.classList.contains('canvas-background') || target.classList.contains('canvas-content'))) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      e.preventDefault();
     }
   }, [pan]);
 
@@ -97,15 +99,30 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         element.style.cursor = 'pointer';
         element.style.transition = 'outline 0.2s ease';
 
+        const updateHighlight = () => {
+          const isSelected = selectedElement?.selector === elementInfo.selector && currentSlideIndex === slideIndex;
+          if (isSelected) {
+            element.style.outline = '3px solid #3B82F6';
+            element.style.outlineOffset = '2px';
+          } else {
+            element.style.outline = 'none';
+            element.style.outlineOffset = '0px';
+          }
+        };
+
+        updateHighlight();
+
         const mouseEnterHandler = () => {
-          if (!isEditingInline && selectedElement?.selector !== elementInfo.selector) {
+          if (!isEditingInline && !(selectedElement?.selector === elementInfo.selector && currentSlideIndex === slideIndex)) {
             element.style.outline = '2px solid rgba(59, 130, 246, 0.5)';
+            element.style.outlineOffset = '2px';
           }
         };
 
         const mouseLeaveHandler = () => {
-          if (selectedElement?.selector !== elementInfo.selector) {
+          if (!(selectedElement?.selector === elementInfo.selector && currentSlideIndex === slideIndex)) {
             element.style.outline = 'none';
+            element.style.outlineOffset = '0px';
           }
         };
 
@@ -115,9 +132,10 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
           onSlideIndexChange(slideIndex);
 
           const styles = getElementStyles(elementInfo.element);
-          onElementSelect(elementInfo);
+          const updatedElementInfo = { ...elementInfo, slideIndex };
+          onElementSelect(updatedElementInfo);
           if (onStyleChange) {
-            onStyleChange(elementInfo, styles);
+            onStyleChange(updatedElementInfo, styles);
           }
         };
 
@@ -126,7 +144,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         element.addEventListener('click', clickHandler);
       });
     }, 100);
-  }, [selectedElement, isEditingInline, onElementSelect, onStyleChange, onSlideIndexChange]);
+  }, [selectedElement, isEditingInline, onElementSelect, onStyleChange, onSlideIndexChange, currentSlideIndex]);
 
   useEffect(() => {
     slides.forEach((slide, index) => {
@@ -135,7 +153,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         setupSlideContent(iframe, slide.htmlContent, index);
       }
     });
-  }, [slides, setupSlideContent]);
+  }, [slides, setupSlideContent, selectedElement, currentSlideIndex]);
 
   const handleIframeRef = useCallback((iframe: HTMLIFrameElement | null, slideId: number) => {
     if (iframe) {
@@ -150,6 +168,30 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
     }
   }, [slides, setupSlideContent]);
 
+  const focusOnSlide = useCallback((slideIndex: number) => {
+    if (!containerRef.current) return;
+
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    const slideX = 100 + (slideIndex * (SLIDE_WIDTH * zoom + SLIDE_SPACING));
+    const slideY = 100;
+
+    const centerX = containerWidth / 2 - (SLIDE_WIDTH * zoom) / 2;
+    const centerY = containerHeight / 2 - (SLIDE_HEIGHT * zoom) / 2;
+
+    setPan({
+      x: centerX - slideX,
+      y: centerY - slideY,
+    });
+  }, [zoom, SLIDE_WIDTH, SLIDE_HEIGHT, SLIDE_SPACING]);
+
+  useEffect(() => {
+    if (selectedElement && selectedElement.slideIndex !== undefined) {
+      focusOnSlide(selectedElement.slideIndex);
+    }
+  }, [selectedElement, focusOnSlide]);
+
   return (
     <div
       ref={containerRef}
@@ -161,13 +203,14 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
       style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
     >
       <div
-        className="absolute"
+        className="absolute canvas-content"
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px)`,
           transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+          pointerEvents: isPanning ? 'none' : 'auto',
         }}
       >
-        <div className="flex items-start" style={{ gap: `${SLIDE_SPACING}px`, padding: '100px' }}>
+        <div className="flex items-start canvas-content" style={{ gap: `${SLIDE_SPACING}px`, padding: '100px' }}>
           {slides.map((slide, index) => (
             <div
               key={slide.id}
@@ -186,24 +229,25 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
               </div>
 
               <div
-                className={`relative w-full h-full rounded-lg overflow-hidden shadow-2xl transition-all ${
+                className={`relative rounded-lg overflow-hidden shadow-2xl transition-all ${
                   index === currentSlideIndex
                     ? 'ring-4 ring-blue-500'
                     : 'ring-2 ring-white/10 hover:ring-white/30'
                 }`}
                 style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'top left',
-                  width: SLIDE_WIDTH,
-                  height: SLIDE_HEIGHT,
+                  width: SLIDE_WIDTH * zoom,
+                  height: SLIDE_HEIGHT * zoom,
                 }}
               >
                 <iframe
                   ref={(el) => handleIframeRef(el, slide.id)}
-                  className="w-full h-full border-0 bg-white pointer-events-auto"
+                  className="w-full h-full border-0 bg-white"
                   style={{
                     width: `${SLIDE_WIDTH}px`,
                     height: `${SLIDE_HEIGHT}px`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top left',
+                    pointerEvents: isPanning ? 'none' : 'auto',
                   }}
                   sandbox="allow-same-origin allow-scripts"
                   title={`Slide ${index + 1}`}

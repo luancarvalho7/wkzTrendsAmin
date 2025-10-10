@@ -8,6 +8,7 @@ import EditorToolbar from './EditorToolbar';
 import FigmaStyleCanvas from './FigmaStyleCanvas';
 import TemplateSelector from './TemplateSelector';
 import ItemPropertiesPanel from './ItemPropertiesPanel';
+import LayersPanel from './LayersPanel';
 
 interface CarouselEditorModalProps {
   isOpen: boolean;
@@ -137,6 +138,12 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     if (!selectedElement) return;
     handleContentChange(selectedElement, content);
   }, [selectedElement, handleContentChange]);
+
+  const handleLayerElementSelect = useCallback((element: EditableElementInfo, slideIndex: number) => {
+    setCurrentSlideIndex(slideIndex);
+    setSelectedElement(element);
+    setElementStyles({});
+  }, []);
 
   const handleElementStyleChange = useCallback((element: EditableElementInfo, styles: Record<string, string>) => {
     console.log('Style change for element:', element.selector, styles);
@@ -373,6 +380,13 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
               currentTemplate={currentTemplate}
               onTemplateChange={handleTemplateChange}
               isLoading={isLoading}
+            />
+            <LayersPanel
+              slides={slides}
+              currentSlideIndex={currentSlideIndex}
+              selectedElement={selectedElement}
+              onSlideSelect={setCurrentSlideIndex}
+              onElementSelect={handleLayerElementSelect}
             />
           </div>
 

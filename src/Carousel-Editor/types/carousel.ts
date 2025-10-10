@@ -71,3 +71,11 @@ export interface EditorState {
 export interface TemplateCache {
   [templateId: string]: string[];
 }
+
+export interface EditableElementInfo {
+  label: string;
+  type: string;
+  selector: string;
+  element: HTMLElement;
+  slideIndex?: number;
+}
