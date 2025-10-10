@@ -157,9 +157,22 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
   const handleStylePropertyChange = useCallback((property: string, value: string) => {
     if (!selectedElement) return;
+    console.log('handleStylePropertyChange:', property, value);
+
     const updatedStyles = { ...elementStyles, [property]: value };
-    handleElementStyleChange(selectedElement, updatedStyles);
-  }, [selectedElement, elementStyles, handleElementStyleChange]);
+    setElementStyles(updatedStyles);
+
+    const currentSlide = slides[currentSlideIndex];
+    const newStyles = { ...currentSlide.styles, [selectedElement.selector]: updatedStyles };
+    updateSlide(currentSlideIndex, { styles: newStyles });
+
+    if (selectedElement.element) {
+      console.log('Applying style to element:', selectedElement.selector, property, value);
+      selectedElement.element.style[property as any] = value;
+    }
+
+    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, styles: newStyles } : s));
+  }, [selectedElement, elementStyles, slides, currentSlideIndex, updateSlide, saveToHistory]);
 
   const handleBackgroundChange = useCallback((imageUrl: string, index: number) => {
     updateSlide(currentSlideIndex, {
