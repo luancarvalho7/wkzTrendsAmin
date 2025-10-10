@@ -1,6 +1,6 @@
 import React from 'react';
 import { Type, Palette, Image } from 'lucide-react';
-import { SlideStyles } from '../../types/carousel';
+import { SlideStyles } from '../types/carousel';
 
 interface StylePanelProps {
   styles: SlideStyles;

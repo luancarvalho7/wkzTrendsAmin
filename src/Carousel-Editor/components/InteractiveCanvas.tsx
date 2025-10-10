@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { EditableElementInfo } from '../../types/carousel';
-import { detectEditableElements, getElementStyles } from '../../utils/elementDetector';
+import { EditableElementInfo } from '../types/carousel';
+import { detectEditableElements, getElementStyles } from '../utils/elementDetector';
 
 interface InteractiveCanvasProps {
   htmlContent: string;

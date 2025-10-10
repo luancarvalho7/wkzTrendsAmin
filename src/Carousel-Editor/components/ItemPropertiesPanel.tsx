@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MousePointer2, Image, Upload, Search } from 'lucide-react';
-import { EditableElementInfo } from '../../types/carousel';
+import { EditableElementInfo } from '../types/carousel';
 import ElementStyleEditor from './ElementStyleEditor';
 
 interface ItemPropertiesPanelProps {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { SlideContent } from '../../types/carousel';
+import { SlideContent } from '../types/carousel';
 
 interface ContentEditorProps {
   content: SlideContent;

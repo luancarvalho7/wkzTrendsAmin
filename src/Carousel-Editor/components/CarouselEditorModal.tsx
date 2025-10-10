@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
-import { CarouselData, EditorSlide, SlideStyles, SlideTransform, EditableElementInfo } from '../../types/carousel';
-import { templateService } from '../../services/templateService';
-import { placeholderService } from '../../services/placeholderService';
-import { exportService } from '../../services/exportService';
+import { CarouselData, EditorSlide, SlideStyles, SlideTransform, EditableElementInfo } from '../types/carousel';
+import { templateService } from '../services/templateService';
+import { placeholderService } from '../services/placeholderService';
+import { exportService } from '../services/exportService';
 import EditorToolbar from './EditorToolbar';
 import InteractiveCanvas from './InteractiveCanvas';
 import SlideNavigator from './SlideNavigator';

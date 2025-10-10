@@ -1,5 +1,5 @@
 import React from 'react';
-import { EditableElementInfo } from '../../types/carousel';
+import { EditableElementInfo } from '../types/carousel';
 
 function rgbToHex(rgb: string): string {
   if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') {

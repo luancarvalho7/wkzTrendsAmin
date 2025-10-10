@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Heart, Play, Trophy, Medal, Award, ExternalLink, Sparkles } from 'lucide-react';
 import { Post } from '../types';
-import { CarouselData } from '../types/carousel';
 import { formatNumber } from '../utils/formatters';
-import CarouselEditorModal from './carousel/CarouselEditorModal';
+import { CarouselEditorModal, CarouselData } from '../Carousel-Editor';
 
 interface PostCardProps {
   post: Post;

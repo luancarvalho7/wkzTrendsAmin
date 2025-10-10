@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Image as ImageIcon, Upload } from 'lucide-react';
-import { SlideContent } from '../../types/carousel';
+import { SlideContent } from '../types/carousel';
 
 interface BackgroundSelectorProps {
   slideContent: SlideContent;

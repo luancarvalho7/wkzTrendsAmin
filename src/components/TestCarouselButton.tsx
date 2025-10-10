@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TestTube } from 'lucide-react';
-import CarouselEditorModal from './carousel/CarouselEditorModal';
+import { CarouselEditorModal } from '../Carousel-Editor';
 
 const TestCarouselButton: React.FC = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);

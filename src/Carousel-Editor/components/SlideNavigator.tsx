@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { EditorSlide } from '../../types/carousel';
+import { EditorSlide } from '../types/carousel';
 
 interface SlideNavigatorProps {
   slides: EditorSlide[];

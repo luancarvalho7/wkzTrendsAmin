@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CarouselData, EditorSlide, SlideStyles, SlideTransform } from '../types/carousel';
-import { templateService } from '../services/templateService';
-import { placeholderService } from '../services/placeholderService';
-import { exportService } from '../services/exportService';
-import EditorToolbar from '../components/carousel/EditorToolbar';
-import InteractiveCanvas, { EditableElement } from '../components/carousel/InteractiveCanvas';
-import SlideNavigator from '../components/carousel/SlideNavigator';
-import TemplateSelector from '../components/carousel/TemplateSelector';
-import ItemPropertiesPanel from '../components/carousel/ItemPropertiesPanel';
+import { CarouselData, EditorSlide, SlideStyles, SlideTransform, EditableElementInfo } from '../Carousel-Editor';
+import { templateService, placeholderService, exportService } from '../Carousel-Editor';
+import EditorToolbar from '../Carousel-Editor/components/EditorToolbar';
+import InteractiveCanvas from '../Carousel-Editor/components/InteractiveCanvas';
+import SlideNavigator from '../Carousel-Editor/components/SlideNavigator';
+import TemplateSelector from '../Carousel-Editor/components/TemplateSelector';
+import ItemPropertiesPanel from '../Carousel-Editor/components/ItemPropertiesPanel';
+
+type EditableElement = EditableElementInfo | null;
 
 const CarouselEditorPage: React.FC = () => {
   const navigate = useNavigate();
