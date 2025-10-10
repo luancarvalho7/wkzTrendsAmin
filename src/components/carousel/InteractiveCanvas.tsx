@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { EditableElementInfo } from '../../types/carousel';
-import { detectEditableElements, getElementStyles, applyStylesToElement } from '../../utils/elementDetector';
+import { detectEditableElements, getElementStyles } from '../../utils/elementDetector';
 
 interface InteractiveCanvasProps {
   htmlContent: string;
@@ -38,69 +38,13 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const clickCountRef = useRef<number>(0);
   const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
-  const setupIframeContent = useCallback(() => {
-    if (!iframeRef.current) return;
-
-    const iframe = iframeRef.current;
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-
-    if (!doc) return;
-
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
-
-    setTimeout(() => {
-      const elements = detectEditableElements(doc);
-      console.log('Detected editable elements:', elements);
-      setEditableElements(elements);
-      updateElementBounds(elements);
-
-      elements.forEach(el => {
-        const styles = getElementStyles(el.element);
-        elementStylesCache.current.set(el.selector, styles);
-      });
-
-      setupClickHandlers(elements, doc);
-    }, 100);
-  }, [htmlContent]);
-
-  useEffect(() => {
-    setupIframeContent();
-  }, [setupIframeContent]);
-
-  useEffect(() => {
-    updateElementBounds(editableElements);
-  }, [zoom]);
-
-  const setupClickHandlers = useCallback((elements: EditableElementInfo[], doc: Document) => {
-    elements.forEach(elementInfo => {
-      const element = doc.querySelector(elementInfo.selector) as HTMLElement;
-      if (!element) return;
-
-      element.style.cursor = 'pointer';
-
-      element.addEventListener('mouseenter', () => {
-        if (!isEditingInline && selectedElement?.selector !== elementInfo.selector) {
-          element.style.outline = '2px solid rgba(59, 130, 246, 0.3)';
-        }
-      });
-
-      element.addEventListener('mouseleave', () => {
-        if (selectedElement?.selector !== elementInfo.selector) {
-          element.style.outline = 'none';
-        }
-      });
-
-      element.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleElementClick(elementInfo);
-      });
-    });
-  }, [isEditingInline, selectedElement]);
-
   const handleElementClick = useCallback((elementInfo: EditableElementInfo) => {
-    if (isEditingInline) return;
+    console.log('handleElementClick called for:', elementInfo.label);
+
+    if (isEditingInline) {
+      console.log('Ignoring click - editing inline');
+      return;
+    }
 
     if (lastClickedElementRef.current?.selector === elementInfo.selector) {
       clickCountRef.current += 1;
@@ -114,11 +58,14 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     }
 
     clickTimerRef.current = setTimeout(() => {
+      console.log('Click count:', clickCountRef.current);
       if (clickCountRef.current === 2 && elementInfo.type === 'text') {
+        console.log('Double click detected - starting inline editing');
         startInlineEditing(elementInfo);
       } else {
+        console.log('Single click - selecting element');
         const styles = getElementStyles(elementInfo.element);
-        console.log('Element clicked:', elementInfo.label, 'Styles:', styles);
+        console.log('Element styles:', styles);
         onElementSelect(elementInfo);
         if (onStyleChange) {
           onStyleChange(elementInfo, styles);
@@ -128,6 +75,83 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       lastClickedElementRef.current = null;
     }, 300);
   }, [isEditingInline, onElementSelect, onStyleChange]);
+
+  const setupIframeContent = useCallback(() => {
+    console.log('setupIframeContent called');
+    if (!iframeRef.current) {
+      console.log('No iframe ref');
+      return;
+    }
+
+    const iframe = iframeRef.current;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+
+    if (!doc) {
+      console.log('No document');
+      return;
+    }
+
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    setTimeout(() => {
+      const elements = detectEditableElements(doc);
+      console.log('Detected editable elements:', elements.length, elements);
+      setEditableElements(elements);
+      updateElementBounds(elements);
+
+      elements.forEach(el => {
+        const styles = getElementStyles(el.element);
+        elementStylesCache.current.set(el.selector, styles);
+      });
+
+      elements.forEach(elementInfo => {
+        const element = doc.querySelector(elementInfo.selector) as HTMLElement;
+        if (!element) {
+          console.log('Element not found for selector:', elementInfo.selector);
+          return;
+        }
+
+        console.log('Setting up click handler for:', elementInfo.label, elementInfo.selector);
+        element.style.cursor = 'pointer';
+        element.style.transition = 'outline 0.2s ease';
+
+        const mouseEnterHandler = () => {
+          if (!isEditingInline && selectedElement?.selector !== elementInfo.selector) {
+            element.style.outline = '2px solid rgba(59, 130, 246, 0.5)';
+          }
+        };
+
+        const mouseLeaveHandler = () => {
+          if (selectedElement?.selector !== elementInfo.selector) {
+            element.style.outline = 'none';
+          }
+        };
+
+        const clickHandler = (e: Event) => {
+          console.log('Click event fired on:', elementInfo.label);
+          e.stopPropagation();
+          e.preventDefault();
+          handleElementClick(elementInfo);
+        };
+
+        element.addEventListener('mouseenter', mouseEnterHandler);
+        element.addEventListener('mouseleave', mouseLeaveHandler);
+        element.addEventListener('click', clickHandler);
+
+        console.log('Event listeners attached to:', elementInfo.label);
+      });
+    }, 100);
+  }, [htmlContent, handleElementClick, isEditingInline, selectedElement]);
+
+  useEffect(() => {
+    setupIframeContent();
+  }, [setupIframeContent]);
+
+  useEffect(() => {
+    updateElementBounds(editableElements);
+  }, [zoom]);
 
   const updateElementBounds = useCallback((elements: EditableElementInfo[]) => {
     if (!iframeRef.current) return;
