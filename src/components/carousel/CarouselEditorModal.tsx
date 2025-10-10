@@ -134,6 +134,11 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     console.log('Content change for element:', element.selector, content);
   }, []);
 
+  const handleTextContentChange = useCallback((content: string) => {
+    if (!selectedElement) return;
+    handleContentChange(selectedElement, content);
+  }, [selectedElement, handleContentChange]);
+
   const handleElementStyleChange = useCallback((element: EditableElementInfo, styles: Record<string, string>) => {
     console.log('Style change for element:', element.selector, styles);
     const currentSlide = slides[currentSlideIndex];
@@ -345,6 +350,7 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
             selectedElement={selectedElement}
             elementStyles={elementStyles}
             onStyleChange={handleStylePropertyChange}
+            onContentChange={handleTextContentChange}
           />
         </div>
       </div>

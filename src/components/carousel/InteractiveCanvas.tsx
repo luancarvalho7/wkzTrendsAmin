@@ -228,7 +228,11 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      const isPropertiesPanel = target.closest('.properties-panel');
+      const isInsideContainer = containerRef.current && containerRef.current.contains(target);
+
+      if (!isInsideContainer && !isPropertiesPanel) {
         onElementSelect(null);
         if (isEditingInline) {
           finishInlineEditing();
