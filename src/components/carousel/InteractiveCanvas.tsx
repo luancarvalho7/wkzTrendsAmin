@@ -117,12 +117,17 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       if (clickCountRef.current === 2 && elementInfo.type === 'text') {
         startInlineEditing(elementInfo);
       } else {
+        const styles = getElementStyles(elementInfo.element);
+        console.log('Element clicked:', elementInfo.label, 'Styles:', styles);
         onElementSelect(elementInfo);
+        if (onStyleChange) {
+          onStyleChange(elementInfo, styles);
+        }
       }
       clickCountRef.current = 0;
       lastClickedElementRef.current = null;
     }, 300);
-  }, [isEditingInline, onElementSelect]);
+  }, [isEditingInline, onElementSelect, onStyleChange]);
 
   const updateElementBounds = useCallback((elements: EditableElementInfo[]) => {
     if (!iframeRef.current) return;

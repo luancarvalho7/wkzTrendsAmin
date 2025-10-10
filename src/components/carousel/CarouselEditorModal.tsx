@@ -157,15 +157,12 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
   }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
   const handleElementSelect = useCallback((element: EditableElementInfo | null) => {
+    console.log('Element selected:', element);
     setSelectedElement(element);
-    if (element) {
-      const currentSlide = slides[currentSlideIndex];
-      const slideElementStyles = currentSlide.styles[element.selector] || {};
-      setElementStyles(slideElementStyles);
-    } else {
+    if (!element) {
       setElementStyles({});
     }
-  }, [slides, currentSlideIndex]);
+  }, []);
 
   const handleSlideChange = useCallback((index: number) => {
     setCurrentSlideIndex(index);

@@ -1,24 +1,18 @@
 import React from 'react';
 import { MousePointer2 } from 'lucide-react';
-import { SlideContent } from '../../types/carousel';
-import { EditableElement } from './InteractiveCanvas';
-import ContentEditor from './ContentEditor';
-import BackgroundSelector from './BackgroundSelector';
+import { EditableElementInfo } from '../../types/carousel';
+import ElementStyleEditor from './ElementStyleEditor';
 
 interface ItemPropertiesPanelProps {
-  selectedElement: EditableElement;
-  slideContent: SlideContent;
-  selectedBackgroundIndex: number;
-  onContentChange: (key: string, value: string) => void;
-  onBackgroundChange: (imageUrl: string, index: number) => void;
+  selectedElement: EditableElementInfo | null;
+  elementStyles: Record<string, string>;
+  onStyleChange: (property: string, value: string) => void;
 }
 
 const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
   selectedElement,
-  slideContent,
-  selectedBackgroundIndex,
-  onContentChange,
-  onBackgroundChange,
+  elementStyles,
+  onStyleChange,
 }) => {
   if (!selectedElement) {
     return (
@@ -37,51 +31,27 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
     );
   }
 
-  if (selectedElement === 'background') {
-    return (
-      <div className="w-80 bg-black border-l border-white/20 flex flex-col overflow-y-auto">
-        <div className="bg-black border-b border-white/20 px-4 py-3">
-          <h3 className="text-sm font-medium text-white">Background Properties</h3>
-          <p className="text-xs text-white/50 mt-1">Selected: Background Image</p>
+  return (
+    <div className="w-80 bg-black border-l border-white/20 flex flex-col overflow-y-auto">
+      <div className="bg-black border-b border-white/20 px-4 py-3 sticky top-0 z-10">
+        <h3 className="text-sm font-medium text-white">Element Properties</h3>
+        <p className="text-xs text-white/50 mt-1">Selected: {selectedElement.label}</p>
+        <div className="mt-2 text-xs text-white/40">
+          <span className="font-mono bg-white/10 px-2 py-1 rounded">
+            {selectedElement.type}
+          </span>
         </div>
-        <BackgroundSelector
-          slideContent={slideContent}
-          selectedIndex={selectedBackgroundIndex}
-          onBackgroundChange={onBackgroundChange}
+      </div>
+
+      <div className="p-4">
+        <ElementStyleEditor
+          element={selectedElement}
+          styles={elementStyles}
+          onStyleChange={onStyleChange}
         />
       </div>
-    );
-  }
-
-  if (selectedElement === 'title' || selectedElement === 'subtitle') {
-    const elementLabel = selectedElement === 'title' ? 'Title' : 'Subtitle';
-
-    return (
-      <div className="w-80 bg-black border-l border-white/20 flex flex-col overflow-y-auto">
-        <div className="bg-black border-b border-white/20 px-4 py-3">
-          <h3 className="text-sm font-medium text-white">Text Properties</h3>
-          <p className="text-xs text-white/50 mt-1">Selected: {elementLabel}</p>
-        </div>
-        <div className="p-4">
-          <label className="block text-xs font-medium text-white/60 mb-2">
-            {elementLabel} Text
-          </label>
-          <textarea
-            value={selectedElement === 'title' ? slideContent.title : (slideContent.subtitle || '')}
-            onChange={(e) => onContentChange(selectedElement, e.target.value)}
-            className="w-full bg-white/10 text-white border border-white/20 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder-white/40"
-            rows={selectedElement === 'title' ? 4 : 3}
-            placeholder={`Enter ${elementLabel.toLowerCase()} text...`}
-          />
-          <p className="text-xs text-white/40 mt-2">
-            Tip: Double-click the text in the preview to edit inline
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 };
 
 export default ItemPropertiesPanel;
