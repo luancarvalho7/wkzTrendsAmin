@@ -6,9 +6,10 @@ const MIN_TEXT_LENGTH = 1;
 export function detectEditableElements(doc: Document): EditableElementInfo[] {
   const elements: EditableElementInfo[] = [];
   const seenElements = new Set<HTMLElement>();
+  const win = doc.defaultView || window;
 
   function isVisible(el: HTMLElement): boolean {
-    const style = window.getComputedStyle(el);
+    const style = win.getComputedStyle(el);
     return style.display !== 'none' &&
            style.visibility !== 'hidden' &&
            style.opacity !== '0' &&
@@ -31,8 +32,14 @@ export function detectEditableElements(doc: Document): EditableElementInfo[] {
   }
 
   function hasBackgroundImage(el: HTMLElement): boolean {
-    const style = window.getComputedStyle(el);
+    const style = win.getComputedStyle(el);
     return style.backgroundImage !== 'none';
+  }
+
+  function hasBackgroundColor(el: HTMLElement): boolean {
+    const style = win.getComputedStyle(el);
+    const bgColor = style.backgroundColor;
+    return bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent';
   }
 
   function containsImage(el: HTMLElement): boolean {
@@ -91,101 +98,99 @@ export function detectEditableElements(doc: Document): EditableElementInfo[] {
     }
 
     const parent = el.parentElement;
-    if (!parent) return el.tagName.toLowerCase();
+    if (!parent || parent === doc.body) {
+      const siblings = Array.from(doc.body.children);
+      const index = siblings.indexOf(el);
+      return `body > ${el.tagName.toLowerCase()}:nth-child(${index + 1})`;
+    }
 
     const siblings = Array.from(parent.children);
-    const index = siblings.indexOf(el);
-    const parentSelector = parent === doc.body ? '' : generateSelector(parent) + ' > ';
+    const sameTagSiblings = siblings.filter(s => s.tagName === el.tagName);
 
-    return `${parentSelector}${el.tagName.toLowerCase()}:nth-child(${index + 1})`;
+    if (sameTagSiblings.length === 1) {
+      return `${generateSelector(parent)} > ${el.tagName.toLowerCase()}`;
+    }
+
+    const index = sameTagSiblings.indexOf(el);
+    return `${generateSelector(parent)} > ${el.tagName.toLowerCase()}:nth-of-type(${index + 1})`;
   }
 
-  function traverse(element: Element) {
+  function traverse(element: Element, depth: number = 0) {
+    if (depth > 20) return;
     if (!(element instanceof HTMLElement)) return;
     if (IGNORED_TAGS.includes(element.tagName)) return;
     if (seenElements.has(element)) return;
-    if (!isVisible(element)) return;
 
-    const hasDataEditable = element.hasAttribute('data-editable');
-
-    if (hasDataEditable) {
-      seenElements.add(element);
-
-      const dataEditableValue = element.getAttribute('data-editable') || '';
-
-      if (dataEditableValue === 'background' && hasBackgroundImage(element)) {
-        elements.push({
-          type: 'background',
-          selector: generateSelector(element),
-          label: 'Background Image',
-          element: element,
-        });
-        return;
-      }
-
-      if (hasTextContent(element) && (dataEditableValue === 'title' || dataEditableValue === 'subtitle')) {
-        elements.push({
-          type: 'text',
-          selector: generateSelector(element),
-          label: getElementLabel(element, 'text'),
-          element: element,
-        });
-        return;
-      }
+    const visible = isVisible(element);
+    if (!visible) {
+      console.log('Element not visible:', element.tagName, element.className);
+      return;
     }
 
-    if (hasBackgroundImage(element) && !hasDataEditable) {
+    let elementAdded = false;
+
+    if (hasBackgroundImage(element) || hasBackgroundColor(element)) {
       seenElements.add(element);
       elements.push({
         type: 'background',
         selector: generateSelector(element),
-        label: getElementLabel(element, 'background'),
+        label: getElementLabel(element, 'background') + ' (Background)',
         element: element,
       });
+      elementAdded = true;
+      console.log('Found background element:', element.tagName, element.className);
     }
 
-    if (containsImage(element) && !hasDataEditable) {
-      seenElements.add(element);
+    if (containsImage(element)) {
+      if (!elementAdded) seenElements.add(element);
       const imgEl = element.tagName === 'IMG' ? element : element.querySelector('img');
       if (imgEl) {
         elements.push({
           type: 'image',
           selector: generateSelector(element),
-          label: getElementLabel(element, 'image'),
+          label: getElementLabel(element, 'image') + ' (Image)',
           element: element,
         });
+        elementAdded = true;
+        console.log('Found image element:', element.tagName, element.className);
       }
     }
 
-    if (isTextElement(element) && !hasDataEditable && !containsImage(element)) {
+    if (isTextElement(element) && !containsImage(element)) {
       const hasTextChildren = Array.from(element.children).some(child =>
         child instanceof HTMLElement && isTextElement(child)
       );
 
       if (!hasTextChildren) {
-        seenElements.add(element);
+        if (!elementAdded) seenElements.add(element);
         elements.push({
           type: 'text',
           selector: generateSelector(element),
           label: getElementLabel(element, 'text'),
           element: element,
         });
+        elementAdded = true;
+        console.log('Found text element:', element.tagName, element.textContent?.substring(0, 30));
         return;
       }
     }
 
     for (const child of Array.from(element.children)) {
-      traverse(child);
+      traverse(child, depth + 1);
     }
   }
 
+  console.log('Starting element detection...');
   traverse(doc.body);
+  console.log('Detection complete. Found elements:', elements.length);
 
   return elements;
 }
 
 export function getElementStyles(element: HTMLElement): Record<string, string> {
-  const computed = window.getComputedStyle(element);
+  const doc = element.ownerDocument;
+  const win = doc.defaultView || window;
+  const computed = win.getComputedStyle(element);
 
   return {
     color: computed.color,
@@ -205,6 +210,7 @@ export function getElementStyles(element: HTMLElement): Record<string, string> {
     alignItems: computed.alignItems,
     flexDirection: computed.flexDirection,
     gap: computed.gap,
+    backgroundImage: computed.backgroundImage,
   };
 }
 
