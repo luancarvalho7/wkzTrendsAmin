@@ -33,56 +33,96 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const [editableElements, setEditableElements] = useState<EditableElementInfo[]>([]);
   const [isEditingInline, setIsEditingInline] = useState(false);
   const [inlineText, setInlineText] = useState('');
-  const [clickCount, setClickCount] = useState(0);
-  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
   const elementStylesCache = useRef<Map<string, Record<string, string>>>(new Map());
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clickCountRef = useRef<number>(0);
+  const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
-  useEffect(() => {
-    if (iframeRef.current) {
-      const iframe = iframeRef.current;
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  const setupIframeContent = useCallback(() => {
+    if (!iframeRef.current) return;
 
-      if (doc) {
-        doc.open();
-        doc.write(htmlContent);
-        doc.close();
+    const iframe = iframeRef.current;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
 
-        setTimeout(() => {
-          const elements = detectEditableElements(doc);
-          console.log('Detected editable elements:', elements);
-          setEditableElements(elements);
-          updateElementBounds(elements);
+    if (!doc) return;
 
-          elements.forEach(el => {
-            const styles = getElementStyles(el.element);
-            elementStylesCache.current.set(el.selector, styles);
-          });
-        }, 100);
-      }
-    }
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    setTimeout(() => {
+      const elements = detectEditableElements(doc);
+      console.log('Detected editable elements:', elements);
+      setEditableElements(elements);
+      updateElementBounds(elements);
+
+      elements.forEach(el => {
+        const styles = getElementStyles(el.element);
+        elementStylesCache.current.set(el.selector, styles);
+      });
+
+      setupClickHandlers(elements, doc);
+    }, 100);
   }, [htmlContent]);
 
   useEffect(() => {
-    updateElementBounds(editableElements);
-  }, [zoom, editableElements]);
+    setupIframeContent();
+  }, [setupIframeContent]);
 
   useEffect(() => {
-    if (selectedElement && onStyleChange) {
-      const iframe = iframeRef.current;
-      if (!iframe) return;
+    updateElementBounds(editableElements);
+  }, [zoom]);
 
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) return;
+  const setupClickHandlers = useCallback((elements: EditableElementInfo[], doc: Document) => {
+    elements.forEach(elementInfo => {
+      const element = doc.querySelector(elementInfo.selector) as HTMLElement;
+      if (!element) return;
 
-      const element = doc.querySelector(selectedElement.selector) as HTMLElement;
-      if (element) {
-        const currentStyles = elementStylesCache.current.get(selectedElement.selector);
-        if (currentStyles) {
-          applyStylesToElement(element, currentStyles);
+      element.style.cursor = 'pointer';
+
+      element.addEventListener('mouseenter', () => {
+        if (!isEditingInline && selectedElement?.selector !== elementInfo.selector) {
+          element.style.outline = '2px solid rgba(59, 130, 246, 0.3)';
         }
-      }
+      });
+
+      element.addEventListener('mouseleave', () => {
+        if (selectedElement?.selector !== elementInfo.selector) {
+          element.style.outline = 'none';
+        }
+      });
+
+      element.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleElementClick(elementInfo);
+      });
+    });
+  }, [isEditingInline, selectedElement]);
+
+  const handleElementClick = useCallback((elementInfo: EditableElementInfo) => {
+    if (isEditingInline) return;
+
+    if (lastClickedElementRef.current?.selector === elementInfo.selector) {
+      clickCountRef.current += 1;
+    } else {
+      clickCountRef.current = 1;
+      lastClickedElementRef.current = elementInfo;
     }
-  }, [selectedElement]);
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      if (clickCountRef.current === 2 && elementInfo.type === 'text') {
+        startInlineEditing(elementInfo);
+      } else {
+        onElementSelect(elementInfo);
+      }
+      clickCountRef.current = 0;
+      lastClickedElementRef.current = null;
+    }, 300);
+  }, [isEditingInline, onElementSelect]);
 
   const updateElementBounds = useCallback((elements: EditableElementInfo[]) => {
     if (!iframeRef.current) return;
@@ -109,56 +149,6 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
     setElementBounds(bounds);
   }, []);
-
-  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (isEditingInline) return;
-
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-
-    const clickX = e.clientX;
-    const clickY = e.clientY;
-
-    let foundBound: ElementBounds | null = null;
-    let minArea = Infinity;
-
-    for (const bound of elementBounds) {
-      const adjustedBound = {
-        x: containerRect.left + (bound.x * zoom),
-        y: containerRect.top + (bound.y * zoom),
-        width: bound.width * zoom,
-        height: bound.height * zoom,
-      };
-
-      if (
-        clickX >= adjustedBound.x &&
-        clickX <= adjustedBound.x + adjustedBound.width &&
-        clickY >= adjustedBound.y &&
-        clickY <= adjustedBound.y + adjustedBound.height
-      ) {
-        const area = bound.width * bound.height;
-        if (area < minArea) {
-          minArea = area;
-          foundBound = bound;
-        }
-      }
-    }
-
-    setClickCount((prev) => prev + 1);
-
-    if (clickTimerRef.current) {
-      clearTimeout(clickTimerRef.current);
-    }
-
-    clickTimerRef.current = setTimeout(() => {
-      if (clickCount + 1 === 2 && foundBound && foundBound.info.type === 'text') {
-        startInlineEditing(foundBound.info);
-      } else {
-        onElementSelect(foundBound ? foundBound.info : null);
-      }
-      setClickCount(0);
-    }, 300);
-  }, [elementBounds, zoom, onElementSelect, clickCount, isEditingInline]);
 
   const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
     if (!iframeRef.current) return;
@@ -221,6 +211,24 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onElementSelect, isEditingInline, finishInlineEditing]);
 
+  useEffect(() => {
+    if (!iframeRef.current || !selectedElement) return;
+
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    editableElements.forEach(info => {
+      const element = doc.querySelector(info.selector) as HTMLElement;
+      if (element) {
+        if (info.selector === selectedElement.selector) {
+          element.style.outline = '3px solid #3b82f6';
+        } else {
+          element.style.outline = 'none';
+        }
+      }
+    });
+  }, [selectedElement, editableElements]);
+
   const getSelectedBound = () => {
     if (!selectedElement) return null;
     return elementBounds.find(b => b.info.selector === selectedElement.selector);
@@ -232,7 +240,6 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     <div
       ref={containerRef}
       className="flex items-center justify-center w-full h-full bg-gray-900 overflow-auto p-8 relative"
-      onClick={handleCanvasClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -252,9 +259,9 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
             width: '1080px',
             height: '1350px',
             border: 'none',
-            pointerEvents: isEditingInline ? 'auto' : 'none',
+            pointerEvents: 'auto',
           }}
-          sandbox="allow-same-origin"
+          sandbox="allow-same-origin allow-scripts"
         />
 
         {selectedBound && !isEditingInline && (
@@ -263,12 +270,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
               position: 'absolute',
               left: `${selectedBound.x}px`,
               top: `${selectedBound.y}px`,
-              width: `${selectedBound.width}px`,
-              height: `${selectedBound.height}px`,
-              border: '3px solid #3b82f6',
-              borderRadius: '4px',
               pointerEvents: 'none',
-              boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
               zIndex: 10,
             }}
           >
