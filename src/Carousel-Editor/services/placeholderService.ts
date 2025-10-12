@@ -71,6 +71,7 @@ export class PlaceholderService {
     const titleStyles: string[] = [];
     const subtitleStyles: string[] = [];
     const backgroundStyles: string[] = [];
+    const customSelectorStyles: Record<string, string[]> = {};
 
     if (styles.titleColor) titleStyles.push(`color: ${styles.titleColor} !important;`);
     if (styles.titleFontSize) titleStyles.push(`font-size: ${styles.titleFontSize} !important;`);
@@ -94,6 +95,25 @@ export class PlaceholderService {
 
     if (styles.backgroundColor) backgroundStyles.push(`background-color: ${styles.backgroundColor} !important;`);
     if (styles.backgroundOpacity) backgroundStyles.push(`opacity: ${styles.backgroundOpacity} !important;`);
+
+    Object.entries(styles).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        const selector = key;
+        const styleObj = value as Record<string, string>;
+        const stylesList: string[] = [];
+
+        Object.entries(styleObj).forEach(([prop, val]) => {
+          if (val) {
+            const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+            stylesList.push(`${cssProp}: ${val} !important;`);
+          }
+        });
+
+        if (stylesList.length > 0) {
+          customSelectorStyles[selector] = stylesList;
+        }
+      }
+    });
 
     const titleTransformParts: string[] = [];
     if (transforms.titleX || transforms.titleY) {
@@ -165,6 +185,14 @@ export class PlaceholderService {
         }
       `;
     }
+
+    Object.entries(customSelectorStyles).forEach(([selector, stylesList]) => {
+      cssRules += `
+        ${selector} {
+          ${stylesList.join('\n          ')}
+        }
+      `;
+    });
 
     if (styles.overlayColor || styles.overlayOpacity) {
       cssRules += `

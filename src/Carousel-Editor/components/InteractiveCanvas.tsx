@@ -138,6 +138,14 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
         console.log('Event listeners attached to:', elementInfo.label);
       });
+
+      if (selectedElement) {
+        const selectedEl = doc.querySelector(selectedElement.selector) as HTMLElement;
+        if (selectedEl) {
+          selectedEl.style.outline = '3px solid #3b82f6';
+          selectedEl.style.outlineOffset = '2px';
+        }
+      }
     }, 100);
   }, [htmlContent, handleElementClick, isEditingInline, selectedElement]);
 
