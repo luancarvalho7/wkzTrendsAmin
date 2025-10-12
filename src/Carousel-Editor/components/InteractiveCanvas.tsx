@@ -268,6 +268,28 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     });
   }, [selectedElement, editableElements]);
 
+  useEffect(() => {
+    if (!iframeRef.current || !selectedElement || !selectedElementStyles) return;
+
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    const element = doc.querySelector(selectedElement.selector) as HTMLElement;
+    if (!element) return;
+
+    console.log('Applying styles to element:', selectedElement.selector, selectedElementStyles);
+
+    Object.entries(selectedElementStyles).forEach(([key, value]) => {
+      if (value && value !== 'undefined' && value !== '') {
+        try {
+          element.style.setProperty(key, value, 'important');
+        } catch (e) {
+          console.error('Error setting style:', key, value, e);
+        }
+      }
+    });
+  }, [selectedElement, selectedElementStyles]);
+
   const getSelectedBound = () => {
     if (!selectedElement) return null;
     return elementBounds.find(b => b.info.selector === selectedElement.selector);

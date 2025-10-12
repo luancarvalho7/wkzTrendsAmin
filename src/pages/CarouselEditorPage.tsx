@@ -344,6 +344,7 @@ const CarouselEditorPage: React.FC = () => {
             htmlContent={currentHtml}
             zoom={zoom}
             selectedElement={selectedElement}
+            selectedElementStyles={selectedElementStyles}
             onElementSelect={handleElementSelect}
             onContentChange={handleContentChange}
           />
