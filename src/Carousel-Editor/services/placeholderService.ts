@@ -5,10 +5,10 @@ export class PlaceholderService {
     if (!text) return '';
 
     let formatted = text
-      .replace(/\.\s+/g, '.<br><br>')
-      .replace(/:(?!\/{2})/g, ':<br>');
+      .replace(/\.\s*/g, '.\n\n')
+      .replace(/:(?!\/{2})\s*/g, ':\n');
 
-    return formatted;
+    return formatted.trim();
   }
 
   replacePlaceholders(
@@ -72,6 +72,7 @@ export class PlaceholderService {
     const subtitleStyles: string[] = [];
     const backgroundStyles: string[] = [];
     const customSelectorStyles: Record<string, string[]> = {};
+    const mainStyles: string[] = [];
 
     if (styles.titleColor) titleStyles.push(`color: ${styles.titleColor} !important;`);
     if (styles.titleFontSize) titleStyles.push(`font-size: ${styles.titleFontSize} !important;`);
@@ -82,6 +83,7 @@ export class PlaceholderService {
     titleStyles.push('display: flex !important;');
     titleStyles.push('flex-direction: column !important;');
     titleStyles.push('justify-content: center !important;');
+    titleStyles.push('white-space: pre-line !important;');
 
     if (styles.subtitleColor) subtitleStyles.push(`color: ${styles.subtitleColor} !important;`);
     if (styles.subtitleFontSize) subtitleStyles.push(`font-size: ${styles.subtitleFontSize} !important;`);
@@ -174,6 +176,7 @@ export class PlaceholderService {
         *[id*="subtitle"],
         p, span {
           ${subtitleStyles.join('\n          ')}
+          white-space: pre-line !important;
         }
       `;
     }
@@ -182,6 +185,16 @@ export class PlaceholderService {
       cssRules += `
         [data-editable="background"] {
           ${backgroundStyles.join('\n          ')}
+        }
+      `;
+    }
+
+    const hasNoBackgroundImage = html.includes('class="slide"') && !html.includes('photo');
+    if (hasNoBackgroundImage) {
+      cssRules += `
+        .slide {
+          justify-content: center !important;
+          padding-top: 0 !important;
         }
       `;
     }

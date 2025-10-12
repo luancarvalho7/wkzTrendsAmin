@@ -254,6 +254,12 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
     }
   }, [selectedElement, focusOnSlide]);
 
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('canvas-content') || (e.target as HTMLElement).classList.contains('canvas-background')) {
+      onElementSelect(null);
+    }
+  }, [onElementSelect]);
+
   return (
     <div
       ref={containerRef}
@@ -262,6 +268,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onClick={handleBackgroundClick}
       style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
     >
       <div

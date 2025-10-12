@@ -194,7 +194,8 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
     if (!element) {
       setElementStyles({});
     } else {
-      const currentSlide = slides[currentSlideIndex];
+      const slideIndex = element.slideIndex !== undefined ? element.slideIndex : currentSlideIndex;
+      const currentSlide = slides[slideIndex];
       const savedStyles = currentSlide.styles?.[element.selector];
 
       if (savedStyles && typeof savedStyles === 'object') {
@@ -268,6 +269,8 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
       setSlides(updatedSlides);
       setCurrentTemplate(templateId);
+      setSelectedElement(null);
+      setElementStyles({});
       saveToHistory(updatedSlides);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load template');
