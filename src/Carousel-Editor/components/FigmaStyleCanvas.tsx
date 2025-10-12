@@ -31,6 +31,11 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isEditingInline, setIsEditingInline] = useState(false);
+  const [inlineText, setInlineText] = useState('');
+  const [editingElement, setEditingElement] = useState<EditableElementInfo | null>(null);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clickCountRef = useRef<number>(0);
+  const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
   const SLIDE_WIDTH = 1080;
   const SLIDE_HEIGHT = 1350;
@@ -81,6 +86,70 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
     setIsPanning(false);
   }, []);
 
+  const startInlineEditing = useCallback((elementInfo: EditableElementInfo, slideIndex: number) => {
+    const iframe = iframesRef.current.get(slides[slideIndex].id);
+    if (!iframe) return;
+
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
+    if (!targetElement) return;
+
+    const currentText = targetElement.textContent || '';
+    setInlineText(currentText);
+    setIsEditingInline(true);
+    setEditingElement({ ...elementInfo, slideIndex });
+    onElementSelect({ ...elementInfo, slideIndex });
+  }, [slides, onElementSelect]);
+
+  const finishInlineEditing = useCallback(() => {
+    if (editingElement && onContentChange) {
+      onContentChange(editingElement, inlineText);
+    }
+    setIsEditingInline(false);
+    setEditingElement(null);
+  }, [editingElement, inlineText, onContentChange]);
+
+  const handleElementClick = useCallback((elementInfo: EditableElementInfo, slideIndex: number) => {
+    console.log('handleElementClick called for:', elementInfo.label, 'on slide', slideIndex);
+
+    if (isEditingInline) {
+      console.log('Ignoring click - editing inline');
+      return;
+    }
+
+    if (lastClickedElementRef.current?.selector === elementInfo.selector) {
+      clickCountRef.current += 1;
+    } else {
+      clickCountRef.current = 1;
+      lastClickedElementRef.current = elementInfo;
+    }
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      console.log('Click count:', clickCountRef.current);
+      if (clickCountRef.current === 2 && elementInfo.type === 'text') {
+        console.log('Double click detected - starting inline editing');
+        startInlineEditing(elementInfo, slideIndex);
+      } else {
+        console.log('Single click - selecting element');
+        onSlideIndexChange(slideIndex);
+        const styles = getElementStyles(elementInfo.element);
+        const updatedElementInfo = { ...elementInfo, slideIndex };
+        onElementSelect(updatedElementInfo);
+        if (onStyleChange) {
+          onStyleChange(updatedElementInfo, styles);
+        }
+      }
+      clickCountRef.current = 0;
+      lastClickedElementRef.current = null;
+    }, 300);
+  }, [isEditingInline, onElementSelect, onStyleChange, onSlideIndexChange, startInlineEditing]);
+
   const setupSlideContent = useCallback((iframe: HTMLIFrameElement, htmlContent: string, slideIndex: number) => {
     if (!iframe?.contentWindow) return;
 
@@ -129,14 +198,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         const clickHandler = (e: Event) => {
           e.stopPropagation();
           e.preventDefault();
-          onSlideIndexChange(slideIndex);
-
-          const styles = getElementStyles(elementInfo.element);
-          const updatedElementInfo = { ...elementInfo, slideIndex };
-          onElementSelect(updatedElementInfo);
-          if (onStyleChange) {
-            onStyleChange(updatedElementInfo, styles);
-          }
+          handleElementClick(elementInfo, slideIndex);
         };
 
         element.addEventListener('mouseenter', mouseEnterHandler);
@@ -144,7 +206,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         element.addEventListener('click', clickHandler);
       });
     }, 100);
-  }, [selectedElement, isEditingInline, onElementSelect, onStyleChange, onSlideIndexChange, currentSlideIndex]);
+  }, [selectedElement, isEditingInline, currentSlideIndex, handleElementClick]);
 
   useEffect(() => {
     slides.forEach((slide, index) => {
@@ -258,6 +320,63 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
         </div>
       </div>
 
+      {isEditingInline && editingElement && (() => {
+        const slideIndex = editingElement.slideIndex !== undefined ? editingElement.slideIndex : currentSlideIndex;
+        const iframe = iframesRef.current.get(slides[slideIndex].id);
+        if (!iframe) return null;
+
+        const doc = iframe.contentDocument;
+        if (!doc) return null;
+
+        const element = doc.querySelector(editingElement.selector) as HTMLElement;
+        if (!element) return null;
+
+        const rect = element.getBoundingClientRect();
+        const iframeRect = iframe.getBoundingClientRect();
+
+        const slideX = 100 + (slideIndex * (SLIDE_WIDTH * zoom + SLIDE_SPACING));
+        const slideY = 100;
+
+        const absoluteX = pan.x + slideX + rect.left;
+        const absoluteY = pan.y + slideY + rect.top;
+
+        return (
+          <textarea
+            value={inlineText}
+            onChange={(e) => setInlineText(e.target.value)}
+            onBlur={finishInlineEditing}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                finishInlineEditing();
+              } else if (e.key === 'Escape') {
+                setIsEditingInline(false);
+                setEditingElement(null);
+              }
+            }}
+            autoFocus
+            style={{
+              position: 'absolute',
+              left: `${absoluteX}px`,
+              top: `${absoluteY}px`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+              border: '3px solid #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '8px',
+              fontSize: '16px',
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+              zIndex: 1000,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+      })()}
+
       <div className="absolute bottom-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm">
         Zoom: {Math.round(zoom * 100)}%
       </div>
@@ -265,7 +384,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
       <div className="absolute top-4 left-4 bg-black/80 text-white px-3 py-2 rounded-lg text-xs backdrop-blur-sm space-y-1">
         <div>🖱️ Click + Drag to pan</div>
         <div>⌨️ Ctrl + Scroll to zoom</div>
-        <div>🎯 Click element to select</div>
+        <div>🎯 Double-click text to edit</div>
       </div>
     </div>
   );
