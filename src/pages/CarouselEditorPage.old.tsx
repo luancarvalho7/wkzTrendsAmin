@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CarouselData, EditorSlide, SlideStyles, SlideTransform, EditableElementInfo } from '../Carousel-Editor';
-import { templateService, placeholderService } from '../Carousel-Editor';
+import { templateService, placeholderService, exportService } from '../Carousel-Editor';
 import EditorToolbar from '../Carousel-Editor/components/EditorToolbar';
 import InteractiveCanvas from '../Carousel-Editor/components/InteractiveCanvas';
 import SlideNavigator from '../Carousel-Editor/components/SlideNavigator';
 import TemplateSelector from '../Carousel-Editor/components/TemplateSelector';
-import ElementPropertiesPanel from '../Carousel-Editor/components/ElementPropertiesPanel';
+import ItemPropertiesPanel from '../Carousel-Editor/components/ItemPropertiesPanel';
 import LayersPanel from '../Carousel-Editor/components/LayersPanel';
 
 type EditableElement = EditableElementInfo | null;
@@ -15,7 +15,6 @@ const CarouselEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const carouselData = location.state?.carouselData as CarouselData | undefined;
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [slides, setSlides] = useState<EditorSlide[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -26,6 +25,7 @@ const CarouselEditorPage: React.FC = () => {
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [selectedElement, setSelectedElement] = useState<EditableElement>(null);
+  const [selectedElementStyles, setSelectedElementStyles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     console.log('CarouselEditorPage mounted');
@@ -126,77 +126,66 @@ const CarouselEditorPage: React.FC = () => {
     saveToHistory(newSlides);
   }, [slides, saveToHistory]);
 
+  const handleStyleChange = (key: string, value: string) => {
+    const currentSlide = slides[currentSlideIndex];
+    updateSlide(currentSlideIndex, {
+      styles: { ...currentSlide.styles, [key]: value },
+    });
+  };
+
+  const handleContentChange = (key: string, value: string) => {
+    const currentSlide = slides[currentSlideIndex];
+    updateSlide(currentSlideIndex, {
+      content: { ...currentSlide.content, [key]: value },
+    });
+  };
+
   const handleBackgroundChange = (imageUrl: string, index: number) => {
     const currentSlide = slides[currentSlideIndex];
     updateSlide(currentSlideIndex, {
       content: { ...currentSlide.content, imagem_fundo: imageUrl },
       selectedBackgroundIndex: index,
     });
-
-    setTimeout(() => {
-      if (iframeRef.current) {
-        const doc = iframeRef.current.contentDocument;
-        if (doc) {
-          const photoElement = doc.querySelector('.photo') as HTMLElement;
-          if (photoElement) {
-            photoElement.style.setProperty('background-image', `url(${imageUrl})`, 'important');
-          }
-        }
-      }
-    }, 100);
   };
 
-  const applyStyleToElement = useCallback((selector: string, property: string, value: string) => {
-    console.log('Applying style:', selector, property, value);
-
-    if (!iframeRef.current) {
-      console.error('No iframe ref');
-      return;
-    }
-
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) {
-      console.error('No iframe document');
-      return;
-    }
-
-    const element = doc.querySelector(selector) as HTMLElement;
-    if (!element) {
-      console.error('Element not found:', selector);
-      return;
-    }
-
-    element.style.setProperty(property, value, 'important');
-    console.log('Style applied successfully');
-  }, []);
-
-  const applyContentToElement = useCallback((selector: string, content: string) => {
-    console.log('Applying content:', selector, content);
-
-    if (!iframeRef.current) {
-      console.error('No iframe ref');
-      return;
-    }
-
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) {
-      console.error('No iframe document');
-      return;
-    }
-
-    const element = doc.querySelector(selector) as HTMLElement;
-    if (!element) {
-      console.error('Element not found:', selector);
-      return;
-    }
-
-    element.textContent = content;
-    console.log('Content applied successfully');
-  }, []);
-
-  const handleElementSelect = (element: EditableElement) => {
-    console.log('Element selected:', element);
+  const handleElementSelect = (element: EditableElement, elementStyles?: Record<string, string>) => {
     setSelectedElement(element);
+    if (elementStyles) {
+      setSelectedElementStyles(elementStyles);
+    } else if (element && element.element) {
+      const doc = element.element.ownerDocument;
+      const win = doc.defaultView || window;
+      const computed = win.getComputedStyle(element.element);
+      setSelectedElementStyles({
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        fontSize: computed.fontSize,
+        fontFamily: computed.fontFamily,
+        fontWeight: computed.fontWeight,
+        textAlign: computed.textAlign,
+        opacity: computed.opacity,
+        borderRadius: computed.borderRadius,
+        padding: computed.padding,
+        margin: computed.margin,
+        width: computed.width,
+        height: computed.height,
+      });
+    } else {
+      setSelectedElementStyles({});
+    }
+  };
+
+  const handleElementStyleChange = (property: string, value: string) => {
+    if (!selectedElement) return;
+
+    setSelectedElementStyles(prev => ({ ...prev, [property]: value }));
+
+    const currentSlide = slides[currentSlideIndex];
+    const updatedStyles = { ...currentSlide.styles, [property]: value };
+
+    updateSlide(currentSlideIndex, {
+      styles: updatedStyles,
+    });
   };
 
   const handleSlideChange = (index: number) => {
@@ -208,18 +197,7 @@ const CarouselEditorPage: React.FC = () => {
     if (slideIndex !== currentSlideIndex) {
       setCurrentSlideIndex(slideIndex);
     }
-
-    setTimeout(() => {
-      if (iframeRef.current) {
-        const doc = iframeRef.current.contentDocument;
-        if (doc) {
-          const domElement = doc.querySelector(element.selector) as HTMLElement;
-          if (domElement) {
-            setSelectedElement({ ...element, element: domElement });
-          }
-        }
-      }
-    }, 100);
+    setSelectedElement(element);
   };
 
   const handleTemplateChange = async (templateId: string) => {
@@ -264,7 +242,13 @@ const CarouselEditorPage: React.FC = () => {
   };
 
   const handleExport = async () => {
-    console.log('Export clicked');
+    if (!carouselData) return;
+
+    try {
+      await exportService.exportAsHTML(slides, carouselData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export');
+    }
   };
 
   const handleBackToFeed = () => {
@@ -334,7 +318,7 @@ const CarouselEditorPage: React.FC = () => {
         onBackToFeed={handleBackToFeed}
       />
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden">
         <div className="w-80 bg-black border-r border-white/20 flex flex-col overflow-y-auto">
           <TemplateSelector
             currentTemplate={currentTemplate}
@@ -360,19 +344,21 @@ const CarouselEditorPage: React.FC = () => {
             htmlContent={currentHtml}
             zoom={zoom}
             selectedElement={selectedElement}
+            selectedElementStyles={selectedElementStyles}
             onElementSelect={handleElementSelect}
-            iframeRef={iframeRef}
+            onContentChange={handleContentChange}
           />
         </div>
 
-        {selectedElement && currentSlide && (
-          <ElementPropertiesPanel
+        {currentSlide && (
+          <ItemPropertiesPanel
             selectedElement={selectedElement}
             slideContent={currentSlide.content}
-            onClose={() => setSelectedElement(null)}
-            onApplyStyle={applyStyleToElement}
-            onApplyContent={applyContentToElement}
+            elementStyles={selectedElementStyles}
+            selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
+            onContentChange={handleContentChange}
             onBackgroundChange={handleBackgroundChange}
+            onStyleChange={handleElementStyleChange}
           />
         )}
       </div>

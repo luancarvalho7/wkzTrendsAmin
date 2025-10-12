@@ -6,9 +6,9 @@ interface InteractiveCanvasProps {
   htmlContent: string;
   zoom: number;
   selectedElement: EditableElementInfo | null;
-  onElementSelect: (element: EditableElementInfo | null, elementStyles?: Record<string, string>) => void;
-  onStyleChange?: (element: EditableElementInfo, styles: Record<string, string>) => void;
+  onElementSelect: (element: EditableElementInfo | null) => void;
   onContentChange?: (key: string, value: string) => void;
+  iframeRef?: React.RefObject<HTMLIFrameElement>;
 }
 
 interface ElementBounds {
@@ -24,10 +24,11 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   zoom,
   selectedElement,
   onElementSelect,
-  onStyleChange,
   onContentChange,
+  iframeRef: externalIframeRef,
 }) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const internalIframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = externalIframeRef || internalIframeRef;
   const containerRef = useRef<HTMLDivElement>(null);
   const [elementBounds, setElementBounds] = useState<ElementBounds[]>([]);
   const [editableElements, setEditableElements] = useState<EditableElementInfo[]>([]);
@@ -64,17 +65,12 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         startInlineEditing(elementInfo);
       } else {
         console.log('Single click - selecting element');
-        const styles = getElementStyles(elementInfo.element);
-        console.log('Element styles:', styles);
-        onElementSelect(elementInfo, styles);
-        if (onStyleChange) {
-          onStyleChange(elementInfo, styles);
-        }
+        onElementSelect(elementInfo);
       }
       clickCountRef.current = 0;
       lastClickedElementRef.current = null;
     }, 300);
-  }, [isEditingInline, onElementSelect, onStyleChange]);
+  }, [isEditingInline, onElementSelect]);
 
   const setupIframeContent = useCallback(() => {
     console.log('setupIframeContent called');
@@ -267,28 +263,6 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       }
     });
   }, [selectedElement, editableElements]);
-
-  useEffect(() => {
-    if (!iframeRef.current || !selectedElement || !selectedElementStyles) return;
-
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) return;
-
-    const element = doc.querySelector(selectedElement.selector) as HTMLElement;
-    if (!element) return;
-
-    console.log('Applying styles to element:', selectedElement.selector, selectedElementStyles);
-
-    Object.entries(selectedElementStyles).forEach(([key, value]) => {
-      if (value && value !== 'undefined' && value !== '') {
-        try {
-          element.style.setProperty(key, value, 'important');
-        } catch (e) {
-          console.error('Error setting style:', key, value, e);
-        }
-      }
-    });
-  }, [selectedElement, selectedElementStyles]);
 
   const getSelectedBound = () => {
     if (!selectedElement) return null;
