@@ -39,6 +39,21 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const clickCountRef = useRef<number>(0);
   const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
+  const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
+    if (!iframeRef.current) return;
+
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
+    if (!targetElement) return;
+
+    const currentText = targetElement.textContent || '';
+    setInlineText(currentText);
+    setIsEditingInline(true);
+    onElementSelect(elementInfo);
+  }, [onElementSelect]);
+
   const handleElementClick = useCallback((elementInfo: EditableElementInfo) => {
     console.log('handleElementClick called for:', elementInfo.label);
 
@@ -70,7 +85,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       clickCountRef.current = 0;
       lastClickedElementRef.current = null;
     }, 300);
-  }, [isEditingInline, onElementSelect]);
+  }, [isEditingInline, onElementSelect, startInlineEditing]);
 
   const setupIframeContent = useCallback(() => {
     console.log('setupIframeContent called');
@@ -182,21 +197,6 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
     setElementBounds(bounds);
   }, []);
-
-  const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
-    if (!iframeRef.current) return;
-
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) return;
-
-    const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
-    if (!targetElement) return;
-
-    const currentText = targetElement.textContent || '';
-    setInlineText(currentText);
-    setIsEditingInline(true);
-    onElementSelect(elementInfo);
-  }, [onElementSelect]);
 
   const finishInlineEditing = useCallback(() => {
     if (selectedElement && selectedElement.type === 'text') {
