@@ -1,6 +1,16 @@
 import { CarouselData, SlideContent, SlideStyles, SlideTransform } from '../types/carousel';
 
 export class PlaceholderService {
+  private formatTextWithBreaks(text: string): string {
+    if (!text) return '';
+
+    let formatted = text
+      .replace(/\.\s+/g, '.<br><br>')
+      .replace(/:(?!\/{2})/g, ':<br>');
+
+    return formatted;
+  }
+
   replacePlaceholders(
     html: string,
     data: CarouselData,
@@ -17,10 +27,22 @@ export class PlaceholderService {
     processedHtml = processedHtml.replace(/@\{\{arroba\}\}/gi, `@${data.dados_gerais.arroba}`);
     processedHtml = processedHtml.replace(/\{\{foto_perfil\}\}/gi, data.dados_gerais.foto_perfil);
 
-    processedHtml = processedHtml.replace(/\{\{title\}\}/gi, slideContent.title || '');
-    processedHtml = processedHtml.replace(/\{\{TITLE\}\}/g, (slideContent.title || '').toUpperCase());
-    processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, slideContent.subtitle || '');
-    processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, (slideContent.subtitle || '').toUpperCase());
+    const hasBackgroundImage = selectedBackgroundIndex === 0
+      ? slideContent.imagem_fundo
+      : selectedBackgroundIndex === 1
+        ? slideContent.imagem_fundo2
+        : slideContent.imagem_fundo3;
+
+    const titleText = slideContent.title || '';
+    const subtitleText = slideContent.subtitle || '';
+
+    const formattedTitle = !hasBackgroundImage ? this.formatTextWithBreaks(titleText) : titleText;
+    const formattedSubtitle = !hasBackgroundImage ? this.formatTextWithBreaks(subtitleText) : subtitleText;
+
+    processedHtml = processedHtml.replace(/\{\{title\}\}/gi, formattedTitle);
+    processedHtml = processedHtml.replace(/\{\{TITLE\}\}/g, formattedTitle.toUpperCase());
+    processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, formattedSubtitle);
+    processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, formattedSubtitle.toUpperCase());
 
     const selectedBgUrl = selectedBackgroundIndex === 0
       ? slideContent.imagem_fundo
@@ -32,6 +54,10 @@ export class PlaceholderService {
 
     const defaultBgUrl = 'https://admin.cnnbrasil.com.br/wp-content/uploads/sites/12/2025/01/Santos-Neymar-braco-Cruzado.jpg';
     processedHtml = processedHtml.replace(new RegExp(defaultBgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), selectedBgUrl || '');
+
+    const currentMonthYear = this.getCurrentMonthYear();
+    processedHtml = processedHtml.replace(/\{\{mesano\}\}/gi, currentMonthYear);
+    processedHtml = processedHtml.replace(/\{\{MESANO\}\}/g, currentMonthYear.toUpperCase());
 
     const hasStyles = styles && Object.keys(styles).length > 0;
     if (hasStyles) {
@@ -52,11 +78,19 @@ export class PlaceholderService {
     if (styles.titleFontWeight) titleStyles.push(`font-weight: ${styles.titleFontWeight} !important;`);
     if (styles.titleTextAlign) titleStyles.push(`text-align: ${styles.titleTextAlign} !important;`);
 
+    titleStyles.push('display: flex !important;');
+    titleStyles.push('flex-direction: column !important;');
+    titleStyles.push('justify-content: center !important;');
+
     if (styles.subtitleColor) subtitleStyles.push(`color: ${styles.subtitleColor} !important;`);
     if (styles.subtitleFontSize) subtitleStyles.push(`font-size: ${styles.subtitleFontSize} !important;`);
     if (styles.subtitleFontFamily) subtitleStyles.push(`font-family: ${styles.subtitleFontFamily} !important;`);
     if (styles.subtitleFontWeight) subtitleStyles.push(`font-weight: ${styles.subtitleFontWeight} !important;`);
     if (styles.subtitleTextAlign) subtitleStyles.push(`text-align: ${styles.subtitleTextAlign} !important;`);
+
+    subtitleStyles.push('display: flex !important;');
+    subtitleStyles.push('flex-direction: column !important;');
+    subtitleStyles.push('justify-content: center !important;');
 
     if (styles.backgroundColor) backgroundStyles.push(`background-color: ${styles.backgroundColor} !important;`);
     if (styles.backgroundOpacity) backgroundStyles.push(`opacity: ${styles.backgroundOpacity} !important;`);
@@ -157,6 +191,17 @@ export class PlaceholderService {
     } else {
       return styleTag + html;
     }
+  }
+
+  private getCurrentMonthYear(): string {
+    const months = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    const now = new Date();
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    return `${month} de ${year}`;
   }
 
   extractEditableContent(html: string): { title?: string; subtitle?: string } {

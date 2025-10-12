@@ -7,6 +7,7 @@ import InteractiveCanvas from '../Carousel-Editor/components/InteractiveCanvas';
 import SlideNavigator from '../Carousel-Editor/components/SlideNavigator';
 import TemplateSelector from '../Carousel-Editor/components/TemplateSelector';
 import ItemPropertiesPanel from '../Carousel-Editor/components/ItemPropertiesPanel';
+import LayersPanel from '../Carousel-Editor/components/LayersPanel';
 
 type EditableElement = EditableElementInfo | null;
 
@@ -150,9 +151,27 @@ const CarouselEditorPage: React.FC = () => {
     setSelectedElement(element);
   };
 
+  const handleElementStyleChange = (property: string, value: string) => {
+    if (!selectedElement) return;
+
+    const currentSlide = slides[currentSlideIndex];
+    const updatedStyles = { ...currentSlide.styles, [property]: value };
+
+    updateSlide(currentSlideIndex, {
+      styles: updatedStyles,
+    });
+  };
+
   const handleSlideChange = (index: number) => {
     setCurrentSlideIndex(index);
     setSelectedElement(null);
+  };
+
+  const handleLayerElementSelect = (element: EditableElementInfo, slideIndex: number) => {
+    if (slideIndex !== currentSlideIndex) {
+      setCurrentSlideIndex(slideIndex);
+    }
+    setSelectedElement(element);
   };
 
   const handleTemplateChange = async (templateId: string) => {
@@ -254,7 +273,8 @@ const CarouselEditorPage: React.FC = () => {
         carouselData,
         currentSlide.content,
         currentSlide.styles,
-        currentSlide.transforms
+        currentSlide.transforms,
+        currentSlide.selectedBackgroundIndex
       )
     : '';
 
@@ -284,6 +304,13 @@ const CarouselEditorPage: React.FC = () => {
             currentIndex={currentSlideIndex}
             onSlideChange={handleSlideChange}
           />
+          <LayersPanel
+            slides={slides}
+            currentSlideIndex={currentSlideIndex}
+            selectedElement={selectedElement}
+            onSlideSelect={handleSlideChange}
+            onElementSelect={handleLayerElementSelect}
+          />
         </div>
 
         <div className="flex-1">
@@ -300,9 +327,11 @@ const CarouselEditorPage: React.FC = () => {
           <ItemPropertiesPanel
             selectedElement={selectedElement}
             slideContent={currentSlide.content}
+            slideStyles={currentSlide.styles}
             selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
             onContentChange={handleContentChange}
             onBackgroundChange={handleBackgroundChange}
+            onStyleChange={handleElementStyleChange}
           />
         )}
       </div>

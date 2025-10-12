@@ -1,29 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { MousePointer2, Image, Upload, Search } from 'lucide-react';
-import { EditableElementInfo } from '../types/carousel';
+import { EditableElementInfo, SlideContent, SlideStyles } from '../types/carousel';
 import ElementStyleEditor from './ElementStyleEditor';
 
 interface ItemPropertiesPanelProps {
   selectedElement: EditableElementInfo | null;
-  elementStyles: Record<string, string>;
+  slideContent: SlideContent;
+  slideStyles: SlideStyles;
+  selectedBackgroundIndex: number;
+  onContentChange: (key: string, value: string) => void;
+  onBackgroundChange: (imageUrl: string, index: number) => void;
   onStyleChange: (property: string, value: string) => void;
-  onContentChange?: (content: string) => void;
 }
-
-const PRESET_BACKGROUNDS = [
-  'https://admin.cnnbrasil.com.br/wp-content/uploads/sites/12/2025/01/Santos-Neymar-braco-Cruzado.jpg',
-  'https://images.pexels.com/photos/1229861/pexels-photo-1229861.jpeg?auto=compress&cs=tinysrgb&w=1080',
-  'https://images.pexels.com/photos/259915/pexels-photo-259915.jpeg?auto=compress&cs=tinysrgb&w=1080',
-];
 
 const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
   selectedElement,
-  elementStyles,
-  onStyleChange,
+  slideContent,
+  slideStyles,
+  selectedBackgroundIndex,
   onContentChange,
+  onBackgroundChange,
+  onStyleChange,
 }) => {
   const [textContent, setTextContent] = useState('');
   const [imageSearch, setImageSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     if (selectedElement?.type === 'text') {
@@ -33,16 +35,17 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
 
   const handleTextChange = (value: string) => {
     setTextContent(value);
-    if (onContentChange) {
-      onContentChange(value);
-    }
-    if (selectedElement?.element) {
-      selectedElement.element.textContent = value;
+    if (selectedElement?.type === 'text') {
+      onContentChange('text', value);
+    } else if (selectedElement?.type === 'title') {
+      onContentChange('title', value);
+    } else if (selectedElement?.type === 'subtitle') {
+      onContentChange('subtitle', value);
     }
   };
 
-  const handleBackgroundChange = (url: string) => {
-    onStyleChange('backgroundImage', `url("${url}")`);
+  const handleBackgroundImageChange = (url: string, index: number) => {
+    onBackgroundChange(url, index);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,9 +54,37 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
-        handleBackgroundChange(dataUrl);
+        handleBackgroundImageChange(dataUrl, selectedBackgroundIndex);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageSearch = async () => {
+    if (!imageSearch.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(imageSearch)}&per_page=6&orientation=portrait`,
+        {
+          headers: {
+            Authorization: 'YOUR_PEXELS_API_KEY',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const imageUrls = data.photos.map((photo: any) => photo.src.large);
+        setSearchResults(imageUrls);
+      } else {
+        console.error('Failed to search images');
+      }
+    } catch (error) {
+      console.error('Error searching images:', error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -101,29 +132,64 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
           </div>
         )}
 
-        {selectedElement.type === 'background' && (
+        {(selectedElement.type === 'background' || selectedElement.type === 'image') && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-white/70 mb-3">
-                Preset Backgrounds
+                Available Backgrounds
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {PRESET_BACKGROUNDS.map((url, index) => (
+                {slideContent.imagem_fundo && (
                   <button
-                    key={index}
-                    onClick={() => handleBackgroundChange(url)}
-                    className="relative aspect-square rounded-lg overflow-hidden border-2 border-white/10 hover:border-blue-500 transition-colors group"
+                    onClick={() => handleBackgroundImageChange(slideContent.imagem_fundo, 0)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors group ${
+                      selectedBackgroundIndex === 0 ? 'border-blue-500' : 'border-white/10 hover:border-blue-500'
+                    }`}
                   >
                     <img
-                      src={url}
-                      alt={`Background ${index + 1}`}
+                      src={slideContent.imagem_fundo}
+                      alt="Background 1"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Image className="w-6 h-6 text-white" />
                     </div>
                   </button>
-                ))}
+                )}
+                {slideContent.imagem_fundo2 && (
+                  <button
+                    onClick={() => handleBackgroundImageChange(slideContent.imagem_fundo2, 1)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors group ${
+                      selectedBackgroundIndex === 1 ? 'border-blue-500' : 'border-white/10 hover:border-blue-500'
+                    }`}
+                  >
+                    <img
+                      src={slideContent.imagem_fundo2}
+                      alt="Background 2"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Image className="w-6 h-6 text-white" />
+                    </div>
+                  </button>
+                )}
+                {slideContent.imagem_fundo3 && (
+                  <button
+                    onClick={() => handleBackgroundImageChange(slideContent.imagem_fundo3, 2)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors group ${
+                      selectedBackgroundIndex === 2 ? 'border-blue-500' : 'border-white/10 hover:border-blue-500'
+                    }`}
+                  >
+                    <img
+                      src={slideContent.imagem_fundo3}
+                      alt="Background 3"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Image className="w-6 h-6 text-white" />
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -136,13 +202,49 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
                   type="text"
                   value={imageSearch}
                   onChange={(e) => setImageSearch(e.target.value)}
-                  placeholder="Search Pexels..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleImageSearch();
+                    }
+                  }}
+                  placeholder="Search keywords..."
                   className="w-full bg-white/5 border border-white/10 rounded pl-10 pr-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               </div>
+              <button
+                onClick={handleImageSearch}
+                disabled={!imageSearch.trim() || isSearching}
+                className="w-full mt-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white text-sm py-2 px-4 rounded transition-colors"
+              >
+                {isSearching ? 'Searching...' : 'Search'}
+              </button>
+              {searchResults.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {searchResults.map((url, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        handleBackgroundImageChange(url, selectedBackgroundIndex);
+                        setSearchResults([]);
+                        setImageSearch('');
+                      }}
+                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-white/10 hover:border-blue-500 transition-colors group"
+                    >
+                      <img
+                        src={url}
+                        alt={`Search result ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Image className="w-6 h-6 text-white" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-white/40 mt-2">
-                Coming soon: Search free stock photos
+                Note: Pexels API key required
               </p>
             </div>
 
@@ -177,7 +279,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
                   if (e.key === 'Enter') {
                     const url = (e.target as HTMLInputElement).value;
                     if (url) {
-                      handleBackgroundChange(url);
+                      handleBackgroundImageChange(url, selectedBackgroundIndex);
                     }
                   }
                 }}
@@ -190,7 +292,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
 
         <ElementStyleEditor
           element={selectedElement}
-          styles={elementStyles}
+          styles={slideStyles}
           onStyleChange={onStyleChange}
         />
       </div>
