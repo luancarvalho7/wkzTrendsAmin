@@ -6,9 +6,9 @@ interface InteractiveCanvasProps {
   htmlContent: string;
   zoom: number;
   selectedElement: EditableElementInfo | null;
-  onElementSelect: (element: EditableElementInfo | null) => void;
+  onElementSelect: (element: EditableElementInfo | null, elementStyles?: Record<string, string>) => void;
   onStyleChange?: (element: EditableElementInfo, styles: Record<string, string>) => void;
-  onContentChange?: (element: EditableElementInfo, content: string) => void;
+  onContentChange?: (key: string, value: string) => void;
 }
 
 interface ElementBounds {
@@ -66,7 +66,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         console.log('Single click - selecting element');
         const styles = getElementStyles(elementInfo.element);
         console.log('Element styles:', styles);
-        onElementSelect(elementInfo);
+        onElementSelect(elementInfo, styles);
         if (onStyleChange) {
           onStyleChange(elementInfo, styles);
         }
@@ -197,7 +197,13 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const finishInlineEditing = useCallback(() => {
     if (selectedElement && selectedElement.type === 'text') {
       if (onContentChange) {
-        onContentChange(selectedElement, inlineText);
+        if (selectedElement.type === 'text' && selectedElement.label === 'Text') {
+          onContentChange('text', inlineText);
+        } else if (selectedElement.type === 'text' && selectedElement.label === 'Title') {
+          onContentChange('title', inlineText);
+        } else if (selectedElement.type === 'text' && selectedElement.label === 'Subtitle') {
+          onContentChange('subtitle', inlineText);
+        }
       }
 
       if (iframeRef.current) {

@@ -25,6 +25,7 @@ const CarouselEditorPage: React.FC = () => {
   const [history, setHistory] = useState<EditorSlide[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [selectedElement, setSelectedElement] = useState<EditableElement>(null);
+  const [selectedElementStyles, setSelectedElementStyles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     console.log('CarouselEditorPage mounted');
@@ -147,12 +148,37 @@ const CarouselEditorPage: React.FC = () => {
     });
   };
 
-  const handleElementSelect = (element: EditableElement) => {
+  const handleElementSelect = (element: EditableElement, elementStyles?: Record<string, string>) => {
     setSelectedElement(element);
+    if (elementStyles) {
+      setSelectedElementStyles(elementStyles);
+    } else if (element && element.element) {
+      const doc = element.element.ownerDocument;
+      const win = doc.defaultView || window;
+      const computed = win.getComputedStyle(element.element);
+      setSelectedElementStyles({
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        fontSize: computed.fontSize,
+        fontFamily: computed.fontFamily,
+        fontWeight: computed.fontWeight,
+        textAlign: computed.textAlign,
+        opacity: computed.opacity,
+        borderRadius: computed.borderRadius,
+        padding: computed.padding,
+        margin: computed.margin,
+        width: computed.width,
+        height: computed.height,
+      });
+    } else {
+      setSelectedElementStyles({});
+    }
   };
 
   const handleElementStyleChange = (property: string, value: string) => {
     if (!selectedElement) return;
+
+    setSelectedElementStyles(prev => ({ ...prev, [property]: value }));
 
     const currentSlide = slides[currentSlideIndex];
     const updatedStyles = { ...currentSlide.styles, [property]: value };
@@ -327,7 +353,7 @@ const CarouselEditorPage: React.FC = () => {
           <ItemPropertiesPanel
             selectedElement={selectedElement}
             slideContent={currentSlide.content}
-            slideStyles={currentSlide.styles}
+            elementStyles={selectedElementStyles}
             selectedBackgroundIndex={currentSlide.selectedBackgroundIndex}
             onContentChange={handleContentChange}
             onBackgroundChange={handleBackgroundChange}

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { MousePointer2, Image, Upload, Search } from 'lucide-react';
-import { EditableElementInfo, SlideContent, SlideStyles } from '../types/carousel';
+import { EditableElementInfo, SlideContent } from '../types/carousel';
 import ElementStyleEditor from './ElementStyleEditor';
 
 interface ItemPropertiesPanelProps {
   selectedElement: EditableElementInfo | null;
   slideContent: SlideContent;
-  slideStyles: SlideStyles;
+  elementStyles: Record<string, string>;
   selectedBackgroundIndex: number;
   onContentChange: (key: string, value: string) => void;
   onBackgroundChange: (imageUrl: string, index: number) => void;
@@ -16,7 +16,7 @@ interface ItemPropertiesPanelProps {
 const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
   selectedElement,
   slideContent,
-  slideStyles,
+  elementStyles,
   selectedBackgroundIndex,
   onContentChange,
   onBackgroundChange,
@@ -292,7 +292,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
 
         <ElementStyleEditor
           element={selectedElement}
-          styles={slideStyles}
+          styles={elementStyles}
           onStyleChange={onStyleChange}
         />
       </div>
