@@ -5,11 +5,11 @@ import ElementStyleEditor from './ElementStyleEditor';
 
 interface ItemPropertiesPanelProps {
   selectedElement: EditableElementInfo | null;
-  slideContent: SlideContent;
+  slideContent?: SlideContent;
   elementStyles: Record<string, string>;
-  selectedBackgroundIndex: number;
-  onContentChange: (key: string, value: string) => void;
-  onBackgroundChange: (imageUrl: string, index: number) => void;
+  selectedBackgroundIndex?: number;
+  onContentChange: (content: string) => void;
+  onBackgroundChange?: (imageUrl: string, index: number) => void;
   onStyleChange: (property: string, value: string) => void;
 }
 
@@ -28,24 +28,26 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    if (selectedElement?.type === 'text') {
-      setTextContent(selectedElement.element.textContent || '');
+    if (selectedElement?.type === 'text' && slideContent) {
+      if (selectedElement.label === 'Title' || selectedElement.selector.includes('title')) {
+        setTextContent(slideContent.title || '');
+      } else if (selectedElement.label === 'Subtitle' || selectedElement.selector.includes('subtitle')) {
+        setTextContent(slideContent.subtitle || '');
+      } else {
+        setTextContent(selectedElement.element.textContent || '');
+      }
     }
-  }, [selectedElement]);
+  }, [selectedElement, slideContent]);
 
   const handleTextChange = (value: string) => {
     setTextContent(value);
-    if (selectedElement?.type === 'text') {
-      onContentChange('text', value);
-    } else if (selectedElement?.type === 'title') {
-      onContentChange('title', value);
-    } else if (selectedElement?.type === 'subtitle') {
-      onContentChange('subtitle', value);
-    }
+    onContentChange(value);
   };
 
   const handleBackgroundImageChange = (url: string, index: number) => {
-    onBackgroundChange(url, index);
+    if (onBackgroundChange) {
+      onBackgroundChange(url, index);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +56,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
-        handleBackgroundImageChange(dataUrl, selectedBackgroundIndex);
+        handleBackgroundImageChange(dataUrl, selectedBackgroundIndex || 0);
       };
       reader.readAsDataURL(file);
     }
@@ -132,7 +134,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
           </div>
         )}
 
-        {(selectedElement.type === 'background' || selectedElement.type === 'image') && (
+        {(selectedElement.type === 'background' || selectedElement.type === 'image') && slideContent && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-white/70 mb-3">
@@ -225,7 +227,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
                     <button
                       key={index}
                       onClick={() => {
-                        handleBackgroundImageChange(url, selectedBackgroundIndex);
+                        handleBackgroundImageChange(url, selectedBackgroundIndex || 0);
                         setSearchResults([]);
                         setImageSearch('');
                       }}
@@ -279,7 +281,7 @@ const ItemPropertiesPanel: React.FC<ItemPropertiesPanelProps> = ({
                   if (e.key === 'Enter') {
                     const url = (e.target as HTMLInputElement).value;
                     if (url) {
-                      handleBackgroundImageChange(url, selectedBackgroundIndex);
+                      handleBackgroundImageChange(url, selectedBackgroundIndex || 0);
                     }
                   }
                 }}

@@ -132,7 +132,19 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
   const handleContentChange = useCallback((element: EditableElementInfo, content: string) => {
     console.log('Content change for element:', element.selector, content);
-  }, []);
+
+    const currentSlide = slides[currentSlideIndex];
+    const updatedContent = { ...currentSlide.content };
+
+    if (element.label === 'Title' || element.selector.includes('title')) {
+      updatedContent.title = content;
+    } else if (element.label === 'Subtitle' || element.selector.includes('subtitle')) {
+      updatedContent.subtitle = content;
+    }
+
+    updateSlide(currentSlideIndex, { content: updatedContent });
+    saveToHistory(slides.map((s, i) => i === currentSlideIndex ? { ...s, content: updatedContent } : s));
+  }, [slides, currentSlideIndex, updateSlide, saveToHistory]);
 
   const handleTextContentChange = useCallback((content: string) => {
     if (!selectedElement) return;
@@ -403,9 +415,12 @@ const CarouselEditorModal: React.FC<CarouselEditorModalProps> = ({
 
           <ItemPropertiesPanel
             selectedElement={selectedElement}
+            slideContent={slides[currentSlideIndex]?.content}
             elementStyles={elementStyles}
+            selectedBackgroundIndex={slides[currentSlideIndex]?.selectedBackgroundIndex || 0}
             onStyleChange={handleStylePropertyChange}
             onContentChange={handleTextContentChange}
+            onBackgroundChange={handleBackgroundChange}
           />
         </div>
       </div>

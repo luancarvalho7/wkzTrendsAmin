@@ -7,7 +7,7 @@ interface InteractiveCanvasProps {
   zoom: number;
   selectedElement: EditableElementInfo | null;
   onElementSelect: (element: EditableElementInfo | null) => void;
-  onContentChange?: (key: string, value: string) => void;
+  onContentChange?: (element: EditableElementInfo, content: string) => void;
   iframeRef?: React.RefObject<HTMLIFrameElement>;
 }
 
@@ -201,13 +201,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const finishInlineEditing = useCallback(() => {
     if (selectedElement && selectedElement.type === 'text') {
       if (onContentChange) {
-        if (selectedElement.type === 'text' && selectedElement.label === 'Text') {
-          onContentChange('text', inlineText);
-        } else if (selectedElement.type === 'text' && selectedElement.label === 'Title') {
-          onContentChange('title', inlineText);
-        } else if (selectedElement.type === 'text' && selectedElement.label === 'Subtitle') {
-          onContentChange('subtitle', inlineText);
-        }
+        onContentChange(selectedElement, inlineText);
       }
 
       if (iframeRef.current) {
