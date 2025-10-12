@@ -146,52 +146,84 @@ const CarouselEditorPage: React.FC = () => {
     }, 100);
   };
 
+  const camelToKebab = (str: string): string => {
+    return str.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+  };
+
   const applyStyleToElement = useCallback((selector: string, property: string, value: string) => {
     console.log('Applying style:', selector, property, value);
 
-    if (!iframeRef.current) {
-      console.error('No iframe ref');
-      return;
-    }
+    const tryApply = () => {
+      if (!iframeRef.current) {
+        console.error('No iframe ref');
+        return false;
+      }
 
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) {
-      console.error('No iframe document');
-      return;
-    }
+      const doc = iframeRef.current.contentDocument;
+      if (!doc || !doc.body) {
+        console.error('No iframe document or body');
+        return false;
+      }
 
-    const element = doc.querySelector(selector) as HTMLElement;
-    if (!element) {
-      console.error('Element not found:', selector);
-      return;
-    }
+      const element = doc.querySelector(selector) as HTMLElement;
+      if (!element) {
+        console.error('Element not found:', selector);
+        console.log('Available classes:', Array.from(doc.querySelectorAll('[class]')).map(e => e.className));
+        return false;
+      }
 
-    element.style.setProperty(property, value, 'important');
-    console.log('Style applied successfully');
+      const kebabProperty = camelToKebab(property);
+      console.log('Setting property:', kebabProperty, '=', value);
+      element.style.setProperty(kebabProperty, value, 'important');
+      console.log('Style applied successfully to:', element);
+      return true;
+    };
+
+    if (!tryApply()) {
+      console.log('First attempt failed, trying again in 100ms...');
+      setTimeout(() => {
+        if (!tryApply()) {
+          console.error('Failed to apply style after retry');
+        }
+      }, 100);
+    }
   }, []);
 
   const applyContentToElement = useCallback((selector: string, content: string) => {
     console.log('Applying content:', selector, content);
 
-    if (!iframeRef.current) {
-      console.error('No iframe ref');
-      return;
-    }
+    const tryApply = () => {
+      if (!iframeRef.current) {
+        console.error('No iframe ref');
+        return false;
+      }
 
-    const doc = iframeRef.current.contentDocument;
-    if (!doc) {
-      console.error('No iframe document');
-      return;
-    }
+      const doc = iframeRef.current.contentDocument;
+      if (!doc || !doc.body) {
+        console.error('No iframe document or body');
+        return false;
+      }
 
-    const element = doc.querySelector(selector) as HTMLElement;
-    if (!element) {
-      console.error('Element not found:', selector);
-      return;
-    }
+      const element = doc.querySelector(selector) as HTMLElement;
+      if (!element) {
+        console.error('Element not found:', selector);
+        console.log('Available classes:', Array.from(doc.querySelectorAll('[class]')).map(e => e.className));
+        return false;
+      }
 
-    element.textContent = content;
-    console.log('Content applied successfully');
+      element.textContent = content;
+      console.log('Content applied successfully to:', element);
+      return true;
+    };
+
+    if (!tryApply()) {
+      console.log('First attempt failed, trying again in 100ms...');
+      setTimeout(() => {
+        if (!tryApply()) {
+          console.error('Failed to apply content after retry');
+        }
+      }, 100);
+    }
   }, []);
 
   const handleElementSelect = (element: EditableElement) => {
