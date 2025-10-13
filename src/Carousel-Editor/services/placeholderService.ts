@@ -36,13 +36,10 @@ export class PlaceholderService {
     const titleText = slideContent.title || '';
     const subtitleText = slideContent.subtitle || '';
 
-    const formattedTitle = !hasBackgroundImage ? this.formatTextWithBreaks(titleText) : titleText;
-    const formattedSubtitle = !hasBackgroundImage ? this.formatTextWithBreaks(subtitleText) : subtitleText;
-
-    processedHtml = processedHtml.replace(/\{\{title\}\}/gi, formattedTitle);
-    processedHtml = processedHtml.replace(/\{\{TITLE\}\}/g, formattedTitle.toUpperCase());
-    processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, formattedSubtitle);
-    processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, formattedSubtitle.toUpperCase());
+    processedHtml = processedHtml.replace(/\{\{title\}\}/gi, titleText);
+    processedHtml = processedHtml.replace(/\{\{TITLE\}\}/g, titleText.toUpperCase());
+    processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, subtitleText);
+    processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, subtitleText.toUpperCase());
 
     const selectedBgUrl = selectedBackgroundIndex === 0
       ? slideContent.imagem_fundo
@@ -165,6 +162,25 @@ export class PlaceholderService {
         *[id*="title"],
         h1, h2, h3 {
           ${titleStyles.join('\n          ')}
+        }
+      `;
+    }
+
+    if (!hasBackgroundImage) {
+      cssRules += `
+        [data-editable="title"],
+        *[class*="title"],
+        *[id*="title"],
+        h1, h2, h3 {
+          text-align: center !important;
+          white-space: pre-line !important;
+        }
+        [data-editable="subtitle"],
+        *[class*="subtitle"],
+        *[id*="subtitle"],
+        p, span {
+          text-align: center !important;
+          white-space: pre-line !important;
         }
       `;
     }
