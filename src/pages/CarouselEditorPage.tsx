@@ -231,6 +231,20 @@ const CarouselEditorPage: React.FC = () => {
     setSelectedElement(element);
   };
 
+  const handleContentChange = useCallback((element: EditableElementInfo, content: string) => {
+    const currentSlide = slides[currentSlideIndex];
+
+    if (element.label.toLowerCase().includes('title')) {
+      updateSlide(currentSlideIndex, {
+        content: { ...currentSlide.content, title: content },
+      });
+    } else if (element.label.toLowerCase().includes('subtitle')) {
+      updateSlide(currentSlideIndex, {
+        content: { ...currentSlide.content, subtitle: content },
+      });
+    }
+  }, [currentSlideIndex, slides, updateSlide]);
+
   const handleSlideChange = (index: number) => {
     setCurrentSlideIndex(index);
     setSelectedElement(null);
@@ -393,6 +407,7 @@ const CarouselEditorPage: React.FC = () => {
             zoom={zoom}
             selectedElement={selectedElement}
             onElementSelect={handleElementSelect}
+            onContentChange={handleContentChange}
             iframeRef={iframeRef}
           />
         </div>
