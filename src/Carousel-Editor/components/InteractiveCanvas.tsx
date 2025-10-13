@@ -39,28 +39,6 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const clickCountRef = useRef<number>(0);
   const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
-  const finishInlineEditing = useCallback(() => {
-    if (selectedElement && selectedElement.type === 'text') {
-      if (onContentChange) {
-        onContentChange(selectedElement, inlineText);
-      }
-
-      if (iframeRef.current) {
-        const doc = iframeRef.current.contentDocument;
-        if (doc) {
-          const element = doc.querySelector(selectedElement.selector) as HTMLElement;
-          if (element) {
-            element.textContent = inlineText;
-            element.contentEditable = 'false';
-            element.style.outline = '';
-            element.style.outlineOffset = '';
-          }
-        }
-      }
-    }
-    setIsEditingInline(false);
-  }, [selectedElement, inlineText, onContentChange]);
-
   const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
     if (!iframeRef.current) return;
 
@@ -74,39 +52,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     setInlineText(currentText);
     setIsEditingInline(true);
     onElementSelect(elementInfo);
-
-    targetElement.contentEditable = 'true';
-    targetElement.style.outline = '3px solid #10b981';
-    targetElement.style.outlineOffset = '2px';
-    targetElement.focus();
-
-    const range = doc.createRange();
-    const sel = doc.getSelection();
-    range.selectNodeContents(targetElement);
-    range.collapse(false);
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-
-    const handleInput = (e: Event) => {
-      const newText = (e.target as HTMLElement).textContent || '';
-      setInlineText(newText);
-    };
-
-    const handleBlur = () => {
-      targetElement.contentEditable = 'false';
-      targetElement.style.outline = '';
-      targetElement.style.outlineOffset = '';
-      setIsEditingInline(false);
-      if (onContentChange) {
-        onContentChange(elementInfo, targetElement.textContent || '');
-      }
-      targetElement.removeEventListener('input', handleInput);
-      targetElement.removeEventListener('blur', handleBlur);
-    };
-
-    targetElement.addEventListener('input', handleInput);
-    targetElement.addEventListener('blur', handleBlur);
-  }, [onElementSelect, onContentChange]);
+  }, [onElementSelect]);
 
   const handleElementClick = useCallback((elementInfo: EditableElementInfo) => {
     console.log('handleElementClick called for:', elementInfo.label);
@@ -116,13 +62,29 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       return;
     }
 
-    if (elementInfo.type === 'text') {
-      console.log('Text element clicked - starting inline editing immediately');
-      startInlineEditing(elementInfo);
+    if (lastClickedElementRef.current?.selector === elementInfo.selector) {
+      clickCountRef.current += 1;
     } else {
-      console.log('Non-text element clicked - selecting element');
-      onElementSelect(elementInfo);
+      clickCountRef.current = 1;
+      lastClickedElementRef.current = elementInfo;
     }
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      console.log('Click count:', clickCountRef.current);
+      if (clickCountRef.current === 2 && elementInfo.type === 'text') {
+        console.log('Double click detected - starting inline editing');
+        startInlineEditing(elementInfo);
+      } else {
+        console.log('Single click - selecting element');
+        onElementSelect(elementInfo);
+      }
+      clickCountRef.current = 0;
+      lastClickedElementRef.current = null;
+    }, 300);
   }, [isEditingInline, onElementSelect, startInlineEditing]);
 
   const setupIframeContent = useCallback(() => {
@@ -236,6 +198,25 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     setElementBounds(bounds);
   }, []);
 
+  const finishInlineEditing = useCallback(() => {
+    if (selectedElement && selectedElement.type === 'text') {
+      if (onContentChange) {
+        onContentChange(selectedElement, inlineText);
+      }
+
+      if (iframeRef.current) {
+        const doc = iframeRef.current.contentDocument;
+        if (doc) {
+          const element = doc.querySelector(selectedElement.selector) as HTMLElement;
+          if (element) {
+            element.textContent = inlineText;
+          }
+        }
+      }
+    }
+    setIsEditingInline(false);
+  }, [selectedElement, inlineText, onContentChange]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       if (isEditingInline) {
@@ -334,6 +315,32 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
               {selectedBound.info.label}
             </div>
           </div>
+        )}
+
+        {isEditingInline && selectedBound && selectedElement?.type === 'text' && (
+          <textarea
+            value={inlineText}
+            onChange={(e) => setInlineText(e.target.value)}
+            onBlur={finishInlineEditing}
+            autoFocus
+            style={{
+              position: 'absolute',
+              left: `${selectedBound.x}px`,
+              top: `${selectedBound.y}px`,
+              width: `${selectedBound.width}px`,
+              height: `${selectedBound.height}px`,
+              border: '3px solid #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '8px',
+              fontSize: '16px',
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+              zIndex: 20,
+            }}
+          />
         )}
       </div>
     </div>

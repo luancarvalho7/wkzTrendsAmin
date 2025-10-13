@@ -128,15 +128,22 @@ const CarouselEditorPage: React.FC = () => {
 
   const handleBackgroundChange = (imageUrl: string, index: number) => {
     const currentSlide = slides[currentSlideIndex];
-
-    const newSlides = [...slides];
-    newSlides[currentSlideIndex] = {
-      ...currentSlide,
+    updateSlide(currentSlideIndex, {
+      content: { ...currentSlide.content, imagem_fundo: imageUrl },
       selectedBackgroundIndex: index,
-    };
+    });
 
-    setSlides(newSlides);
-    saveToHistory(newSlides);
+    setTimeout(() => {
+      if (iframeRef.current) {
+        const doc = iframeRef.current.contentDocument;
+        if (doc) {
+          const photoElement = doc.querySelector('.photo') as HTMLElement;
+          if (photoElement) {
+            photoElement.style.setProperty('background-image', `url(${imageUrl})`, 'important');
+          }
+        }
+      }
+    }, 100);
   };
 
   const camelToKebab = (str: string): string => {
