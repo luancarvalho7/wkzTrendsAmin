@@ -31,6 +31,7 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isEditingInline, setIsEditingInline] = useState(false);
+  const [inlineText, setInlineText] = useState('');
   const [editingElement, setEditingElement] = useState<EditableElementInfo | null>(null);
   const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
   const clickCountRef = useRef<number>(0);
@@ -95,64 +96,20 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
     const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
     if (!targetElement) return;
 
-    targetElement.contentEditable = 'true';
-    targetElement.style.outline = '3px solid #10b981';
-    targetElement.style.outlineOffset = '2px';
-    targetElement.style.cursor = 'text';
-    targetElement.focus();
-
-    const range = doc.createRange();
-    const selection = doc.getSelection();
-    if (selection) {
-      range.selectNodeContents(targetElement);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-
-    const handleInput = () => {
-      // Text is being updated directly in the contentEditable element
-    };
-
-    const handleBlur = () => {
-      finishInlineEditing(slideIndex, targetElement);
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        targetElement.blur();
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        targetElement.blur();
-      }
-    };
-
-    targetElement.addEventListener('input', handleInput);
-    targetElement.addEventListener('blur', handleBlur, { once: true });
-    targetElement.addEventListener('keydown', handleKeyDown);
-
+    const currentText = targetElement.textContent || '';
+    setInlineText(currentText);
     setIsEditingInline(true);
     setEditingElement({ ...elementInfo, slideIndex });
     onElementSelect({ ...elementInfo, slideIndex });
   }, [slides, onElementSelect]);
 
-  const finishInlineEditing = useCallback((slideIndex: number, targetElement: HTMLElement) => {
-    if (!targetElement) return;
-
-    targetElement.contentEditable = 'false';
-    targetElement.style.outline = 'none';
-    targetElement.style.cursor = 'pointer';
-
-    const newText = targetElement.textContent || '';
-
+  const finishInlineEditing = useCallback(() => {
     if (editingElement && onContentChange) {
-      onContentChange(editingElement, newText);
+      onContentChange(editingElement, inlineText);
     }
-
     setIsEditingInline(false);
     setEditingElement(null);
-  }, [editingElement, onContentChange]);
+  }, [editingElement, inlineText, onContentChange]);
 
   const handleElementClick = useCallback((elementInfo: EditableElementInfo, slideIndex: number) => {
     console.log('handleElementClick called for:', elementInfo.label, 'on slide', slideIndex);
@@ -369,6 +326,63 @@ const FigmaStyleCanvas: React.FC<FigmaStyleCanvasProps> = ({
           ))}
         </div>
       </div>
+
+      {isEditingInline && editingElement && (() => {
+        const slideIndex = editingElement.slideIndex !== undefined ? editingElement.slideIndex : currentSlideIndex;
+        const iframe = iframesRef.current.get(slides[slideIndex].id);
+        if (!iframe) return null;
+
+        const doc = iframe.contentDocument;
+        if (!doc) return null;
+
+        const element = doc.querySelector(editingElement.selector) as HTMLElement;
+        if (!element) return null;
+
+        const rect = element.getBoundingClientRect();
+        const iframeRect = iframe.getBoundingClientRect();
+
+        const slideX = 100 + (slideIndex * (SLIDE_WIDTH * zoom + SLIDE_SPACING));
+        const slideY = 100;
+
+        const absoluteX = pan.x + slideX + rect.left;
+        const absoluteY = pan.y + slideY + rect.top;
+
+        return (
+          <textarea
+            value={inlineText}
+            onChange={(e) => setInlineText(e.target.value)}
+            onBlur={finishInlineEditing}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                finishInlineEditing();
+              } else if (e.key === 'Escape') {
+                setIsEditingInline(false);
+                setEditingElement(null);
+              }
+            }}
+            autoFocus
+            style={{
+              position: 'absolute',
+              left: `${absoluteX}px`,
+              top: `${absoluteY}px`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+              border: '3px solid #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '8px',
+              fontSize: '16px',
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+              zIndex: 1000,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+      })()}
 
       <div className="absolute bottom-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm">
         Zoom: {Math.round(zoom * 100)}%
