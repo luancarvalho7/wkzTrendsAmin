@@ -27,13 +27,11 @@ export class PlaceholderService {
     processedHtml = processedHtml.replace(/@\{\{arroba\}\}/gi, `@${data.dados_gerais.arroba}`);
     processedHtml = processedHtml.replace(/\{\{foto_perfil\}\}/gi, data.dados_gerais.foto_perfil);
 
-    const selectedBgUrl = selectedBackgroundIndex === 0
+    const hasBackgroundImage = selectedBackgroundIndex === 0
       ? slideContent.imagem_fundo
       : selectedBackgroundIndex === 1
         ? slideContent.imagem_fundo2
         : slideContent.imagem_fundo3;
-
-    const hasBackgroundImage = selectedBgUrl && selectedBgUrl.trim() !== '';
 
     const titleText = slideContent.title || '';
     const subtitleText = slideContent.subtitle || '';
@@ -46,6 +44,12 @@ export class PlaceholderService {
     processedHtml = processedHtml.replace(/\{\{subtitle\}\}/gi, formattedSubtitle);
     processedHtml = processedHtml.replace(/\{\{SUBTITLE\}\}/g, formattedSubtitle.toUpperCase());
 
+    const selectedBgUrl = selectedBackgroundIndex === 0
+      ? slideContent.imagem_fundo
+      : selectedBackgroundIndex === 1
+        ? slideContent.imagem_fundo2
+        : slideContent.imagem_fundo3;
+
     processedHtml = processedHtml.replace(/\{\{imagem_fundo\}\}/gi, selectedBgUrl || '');
 
     const defaultBgUrl = 'https://admin.cnnbrasil.com.br/wp-content/uploads/sites/12/2025/01/Santos-Neymar-braco-Cruzado.jpg';
@@ -57,13 +61,13 @@ export class PlaceholderService {
 
     const hasStyles = styles && Object.keys(styles).length > 0;
     if (hasStyles) {
-      processedHtml = this.injectStyles(processedHtml, styles, transforms, hasBackgroundImage);
+      processedHtml = this.injectStyles(processedHtml, styles, transforms);
     }
 
     return processedHtml;
   }
 
-  private injectStyles(html: string, styles: SlideStyles, transforms: SlideTransform, hasBackgroundImage: boolean = true): string {
+  private injectStyles(html: string, styles: SlideStyles, transforms: SlideTransform): string {
     const titleStyles: string[] = [];
     const subtitleStyles: string[] = [];
     const backgroundStyles: string[] = [];
@@ -185,26 +189,12 @@ export class PlaceholderService {
       `;
     }
 
-    if (!hasBackgroundImage) {
+    const hasNoBackgroundImage = html.includes('class="slide"') && !html.includes('photo');
+    if (hasNoBackgroundImage) {
       cssRules += `
         .slide {
           justify-content: center !important;
-          align-items: center !important;
           padding-top: 0 !important;
-          display: flex !important;
-          flex-direction: column !important;
-        }
-        [data-editable="title"],
-        *[class*="title"],
-        *[id*="title"],
-        h1, h2, h3 {
-          text-align: center !important;
-        }
-        [data-editable="subtitle"],
-        *[class*="subtitle"],
-        *[id*="subtitle"],
-        p, span {
-          text-align: center !important;
         }
       `;
     }

@@ -32,27 +32,12 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [elementBounds, setElementBounds] = useState<ElementBounds[]>([]);
   const [editableElements, setEditableElements] = useState<EditableElementInfo[]>([]);
+  const [isEditingInline, setIsEditingInline] = useState(false);
+  const [inlineText, setInlineText] = useState('');
   const elementStylesCache = useRef<Map<string, Record<string, string>>>(new Map());
-  const editingElementRef = useRef<HTMLElement | null>(null);
-  const originalContentRef = useRef<string>('');
-
-  const finishInlineEditing = useCallback(() => {
-    if (editingElementRef.current) {
-      const element = editingElementRef.current;
-      const newContent = element.textContent || '';
-
-      element.contentEditable = 'false';
-      element.style.outline = '';
-      element.style.backgroundColor = '';
-
-      if (selectedElement && onContentChange && newContent !== originalContentRef.current) {
-        onContentChange(selectedElement, newContent);
-      }
-
-      editingElementRef.current = null;
-      originalContentRef.current = '';
-    }
-  }, [selectedElement, onContentChange]);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clickCountRef = useRef<number>(0);
+  const lastClickedElementRef = useRef<EditableElementInfo | null>(null);
 
   const startInlineEditing = useCallback((elementInfo: EditableElementInfo) => {
     if (!iframeRef.current) return;
@@ -63,38 +48,44 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     const targetElement = doc.querySelector(elementInfo.selector) as HTMLElement;
     if (!targetElement) return;
 
-    originalContentRef.current = targetElement.textContent || '';
-    editingElementRef.current = targetElement;
-
-    targetElement.contentEditable = 'true';
-    targetElement.style.outline = '3px solid #10b981';
-    targetElement.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-    targetElement.focus();
-
-    const range = doc.createRange();
-    const selection = doc.getSelection();
-    if (selection) {
-      range.selectNodeContents(targetElement);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-
+    const currentText = targetElement.textContent || '';
+    setInlineText(currentText);
+    setIsEditingInline(true);
     onElementSelect(elementInfo);
   }, [onElementSelect]);
 
   const handleElementClick = useCallback((elementInfo: EditableElementInfo) => {
     console.log('handleElementClick called for:', elementInfo.label);
 
-    if (editingElementRef.current) {
-      finishInlineEditing();
+    if (isEditingInline) {
+      console.log('Ignoring click - editing inline');
+      return;
     }
 
-    if (elementInfo.type === 'text') {
-      startInlineEditing(elementInfo);
+    if (lastClickedElementRef.current?.selector === elementInfo.selector) {
+      clickCountRef.current += 1;
     } else {
-      onElementSelect(elementInfo);
+      clickCountRef.current = 1;
+      lastClickedElementRef.current = elementInfo;
     }
-  }, [onElementSelect, startInlineEditing, finishInlineEditing]);
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      console.log('Click count:', clickCountRef.current);
+      if (clickCountRef.current === 2 && elementInfo.type === 'text') {
+        console.log('Double click detected - starting inline editing');
+        startInlineEditing(elementInfo);
+      } else {
+        console.log('Single click - selecting element');
+        onElementSelect(elementInfo);
+      }
+      clickCountRef.current = 0;
+      lastClickedElementRef.current = null;
+    }, 300);
+  }, [isEditingInline, onElementSelect, startInlineEditing]);
 
   const setupIframeContent = useCallback(() => {
     console.log('setupIframeContent called');
@@ -138,7 +129,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         element.style.transition = 'outline 0.2s ease';
 
         const mouseEnterHandler = () => {
-          if (element !== editingElementRef.current && selectedElement?.selector !== elementInfo.selector) {
+          if (!isEditingInline && selectedElement?.selector !== elementInfo.selector) {
             element.style.outline = '2px solid rgba(59, 130, 246, 0.5)';
           }
         };
@@ -171,7 +162,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         }
       }
     }, 100);
-  }, [htmlContent, handleElementClick, selectedElement]);
+  }, [htmlContent, handleElementClick, isEditingInline, selectedElement]);
 
   useEffect(() => {
     setupIframeContent();
@@ -207,18 +198,37 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     setElementBounds(bounds);
   }, []);
 
+  const finishInlineEditing = useCallback(() => {
+    if (selectedElement && selectedElement.type === 'text') {
+      if (onContentChange) {
+        onContentChange(selectedElement, inlineText);
+      }
+
+      if (iframeRef.current) {
+        const doc = iframeRef.current.contentDocument;
+        if (doc) {
+          const element = doc.querySelector(selectedElement.selector) as HTMLElement;
+          if (element) {
+            element.textContent = inlineText;
+          }
+        }
+      }
+    }
+    setIsEditingInline(false);
+  }, [selectedElement, inlineText, onContentChange]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      if (editingElementRef.current) {
-        if (editingElementRef.current) {
-          editingElementRef.current.textContent = originalContentRef.current;
-        }
+      if (isEditingInline) {
         finishInlineEditing();
       } else {
         onElementSelect(null);
       }
+    } else if (e.key === 'Enter' && !e.shiftKey && isEditingInline) {
+      e.preventDefault();
+      finishInlineEditing();
     }
-  }, [finishInlineEditing, onElementSelect]);
+  }, [isEditingInline, finishInlineEditing, onElementSelect]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -227,16 +237,16 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       const isInsideContainer = containerRef.current && containerRef.current.contains(target);
 
       if (!isInsideContainer && !isPropertiesPanel) {
-        if (editingElementRef.current) {
+        onElementSelect(null);
+        if (isEditingInline) {
           finishInlineEditing();
         }
-        onElementSelect(null);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onElementSelect, finishInlineEditing]);
+  }, [onElementSelect, isEditingInline, finishInlineEditing]);
 
   useEffect(() => {
     if (!iframeRef.current || !selectedElement) return;
@@ -291,7 +301,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
           sandbox="allow-same-origin allow-scripts"
         />
 
-        {selectedBound && !editingElementRef.current && (
+        {selectedBound && !isEditingInline && (
           <div
             style={{
               position: 'absolute',
@@ -305,6 +315,32 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
               {selectedBound.info.label}
             </div>
           </div>
+        )}
+
+        {isEditingInline && selectedBound && selectedElement?.type === 'text' && (
+          <textarea
+            value={inlineText}
+            onChange={(e) => setInlineText(e.target.value)}
+            onBlur={finishInlineEditing}
+            autoFocus
+            style={{
+              position: 'absolute',
+              left: `${selectedBound.x}px`,
+              top: `${selectedBound.y}px`,
+              width: `${selectedBound.width}px`,
+              height: `${selectedBound.height}px`,
+              border: '3px solid #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '8px',
+              fontSize: '16px',
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: '0 0 0 1px rgba(16, 185, 129, 0.3)',
+              zIndex: 20,
+            }}
+          />
         )}
       </div>
     </div>
